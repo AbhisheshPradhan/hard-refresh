@@ -1,0 +1,187 @@
+---
+title: "Components and props"
+summary: "The unit everything is built from, and how values reach it."
+order: 3
+prerequisites: ["react/foundations/jsx"]
+tags: []
+updated: "2026-09-04"
+---
+
+A component is a function that takes data and returns JSX. It is named with a capital letter, because JSX treats lowercase names as HTML tags (see 2).
+
+```jsx
+const JobCard = ({ job }) => {
+  return (
+    <article className="card">
+      <h3>{job.title}</h3>
+      <p>{job.location}</p>
+    </article>
+  );
+};
+
+export default JobCard;
+```
+
+Used the same way as a tag:
+
+```jsx
+<JobCard job={job} />
+```
+
+## Composition
+
+Components are built from other components. A page is made of sections, a section of cards, a card of a title and a badge. Breaking work down this way is called composition, and it is the main reason a large interface stays manageable: each piece is small enough to understand alone, and a change to how a card looks happens in one file rather than everywhere cards appear.
+
+<Figure caption="The job board, drawn as the tree React actually renders.">
+<svg viewBox="0 0 740 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The job board component tree: App contains Navbar and JobsPage, which contains JobFilters and JobList, which contains JobCard, which contains Badge.">
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="300" y="20" width="130" height="28"/>
+    <rect x="110" y="76" width="130" height="28"/>
+    <rect x="360" y="76" width="130" height="28"/>
+    <rect x="250" y="132" width="130" height="28"/>
+    <rect x="420" y="132" width="130" height="28"/>
+    <rect x="420" y="188" width="130" height="28"/>
+    <rect x="590" y="188" width="130" height="28"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2">
+    
+<path d="M365 48 V62 H425 V74"/>
+    <path d="M425 104 V118 H315 V130"/>
+    <path d="M425 118 H485 V130"/>
+    <path d="M485 160 V186"/>
+    <path d="M485 174 H655 V186"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" fill="currentColor" text-anchor="middle">
+    <text x="365" y="39">App</text>
+    <text x="175" y="95">Navbar</text>
+    <text x="425" y="95">JobsPage</text>
+    <text x="315" y="151">JobFilters</text>
+    <text x="485" y="151">JobList</text>
+    <text x="485" y="207">JobCard</text>
+    <text x="655" y="207">Badge</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" font-style="italic" fill="currentColor">
+    <text x="10" y="207">each box is one file, one job</text>
+  </g>
+</svg>
+</Figure>
+
+## Props
+
+Props are the arguments a component receives, written as attributes. They travel one way: from a parent down into a child. The child may read them and must not change them.
+
+```jsx
+// the whole object
+const Hero = (props) => {
+  return <h1>{props.title}</h1>;
+};
+
+// destructured, with defaults — the usual style
+const Hero = ({ title = 'Become a React Dev', subtitle = 'Find the job that fits' }) => {
+  return (
+    <section>
+      <h1>{title}</h1>
+      <p>{subtitle}</p>
+    </section>
+  );
+};
+```
+
+A default applies only when the prop is missing or `undefined`. Passing `title=""` gives you an empty title, not the default.
+
+Props are not only data. Anything JavaScript can hold can be passed, and each unlocks a different pattern:
+
+| Prop type | Example | Used for |
+|---|---|---|
+| Value | `job={job}` | What to display |
+| Function | `onDelete={deleteJob}` | Letting a child trigger the parent (see 14) |
+| Element | `icon={<FaMapMarker />}` | Letting the caller supply part of the markup |
+| Class name | bg="bg-indigo-100" | Varying appearance without a new component |
+
+## children
+
+Whatever a caller wraps between the tags arrives as the `children` prop. It is what makes wrappers possible.
+
+```jsx
+const Card = ({ children, bg = 'bg-gray-100' }) => {
+  return (
+    <div className={`${bg} p-6 rounded-lg shadow-md`}>
+      {children}
+    </div>
+  );
+};
+
+// the caller decides the contents; Card owns the box
+<Card bg="bg-indigo-100">
+  <h2>For Employers</h2>
+  <p>List a job and find your next developer</p>
+</Card>
+```
+
+`children` is worth more than it first appears. It is the basis of layouts, modals and compound components (see 24), and it turns out to be a re-render fix as well (see 14).
+
+## One-way data flow
+
+Props go down, and only down. A child cannot reach into its parent and change anything, and it cannot see a sibling at all. When a child needs to cause a change, the parent passes it a function, and the child calls it — so data travels down and events travel up.
+
+```jsx
+const JobsPage = () => {
+  const [selected, setSelected] = useState(null);
+
+  return <JobCard job={job} onSelect={setSelected} />;   // data down
+};
+
+const JobCard = ({ job, onSelect }) => {
+  return (
+    <button onClick={() => {
+      onSelect(job.id);                                   // event up
+    }}>
+      {job.title}
+    </button>
+  );
+};
+```
+
+This is often called **one-way** or **unidirectional data flow**, and the payoff is diagnostic. When a value on screen is wrong, it came from exactly one place — the component that owns it — so debugging is walking up the tree rather than searching the whole app for who might have written to it. Two-way binding, where a child writes back to the parent's value directly, is faster to type and gives up that guarantee.
+
+It also decides where state belongs. If two components need the same value, neither can own it, because neither can reach the other; the value must live at their closest common ancestor and flow down to both. That ancestor becomes the **single source of truth** for it — one place holds the value, everything else receives a copy through props (see 14).
+
+## Component, element, instance
+
+Three words that get used interchangeably and mean different things. The distinction is what makes chapter 9 comprehensible, so it is worth fixing now.
+
+| Term | What it is |
+|---|---|
+| Component | The function you wrote: JobCard |
+| Element | The object produced by `<JobCard job={job} />`, describing one use of it |
+| Instance | What React keeps on screen for that element, holding its state |
+
+One component, many elements, one instance per element on screen. Six job cards means one function, six elements per render, and six instances each with their own state.
+
+  
+### What happens when
+
+  
+A child does `job.title = job.title.toUpperCase()` and renders it. The title uppercases correctly. What is wrong?
+
+  
+The child mutated an object the parent owns, so every other component holding that same job now sees the uppercased title, with no render triggered to show it. The screen becomes inconsistent in a way that looks random. Derive a new value instead — `const title = job.title.toUpperCase()` (see 10).
+
+## Gotchas
+
+- Component names must be capitalised. Lowercase is treated as an HTML tag and fails silently (see 2).
+- Props are read-only. Mutating one changes the parent's data behind its back.
+- Defaults only fill in undefined, not null, 0 or ''.
+- Never define a component inside another component. It is a new function each render, so React remounts it and its state resets (see 9).
+- Passing everything down with `{...props}` is convenient and hides the interface. Fine for a thin wrapper around an input; poor for a component with real behaviour.
+- children is a fixed name. You cannot rename it, though you can pass elements under other names alongside it.
+
+## Takeaways
+
+- Props flow down; callbacks let events flow back up.
+- A component is a capitalised function taking props and returning JSX.
+- Composition — small components assembled into bigger ones — is what keeps an interface maintainable.
+- Props flow down and are read-only in the child.
+- Destructure with defaults in the parameter list.
+- Props can carry functions and elements, not only data.
+- Component, element and instance are three different things: the function, the description, the thing on screen.

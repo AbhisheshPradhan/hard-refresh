@@ -1,0 +1,374 @@
+---
+title: "Building components under time pressure"
+summary: "The same material assembled at speed, which is a different skill."
+order: 28
+prerequisites: ["react/effects-and-refs/useeffect", "react/production/component-patterns", "react/production/testing"]
+tags: []
+updated: "2026-09-04"
+---
+
+Knowing how something works and building it in twenty-five minutes while someone watches are different abilities. This chapter is four components you are likely to be asked for, each with the order to build them in and the follow-ups that always come.
+
+Markup that teaches nothing is elided — a comment stands in for the card layout. Everything with logic in it is complete.
+
+## How to sequence any of them
+
+1. Restate the requirement in one sentence and name one thing you are deliberately leaving for later. This buys agreement before you write anything.
+2. Build the simplest version that works — usually state plus render, no edge cases.
+3. Say what is missing as you go. "This will fire a request per keystroke; I will debounce it next" is worth more than silently writing the debounce.
+4. Add the hard parts in order of user impact: correctness, then keyboard, then polish.
+
+The most common failure is not slowness — it is starting with the hardest part. Someone builds the focus trap before the modal renders, and time runs out with nothing on screen.
+
+## Autocomplete
+
+<Callout kind="brief">
+A search input that fetches suggestions as the user types, shows a dropdown, and lets them pick one with the mouse or the keyboard.
+</Callout>
+
+### The minimum
+
+```jsx
+const Autocomplete = ({ onSelect }) => {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+
+  useEffect(() => {
+    if (query.length < 2) {
+      setResults([]);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const search = async () => {
+      try {
+        const res = await fetch(`/api/jobs?q=${query}`, { signal: controller.signal });
+        setResults(await res.json());
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          setResults([]);
+        }
+      }
+    };
+
+    search();
+
+    return () => {
+      controller.abort();
+    };
+  }, [query]);
+
+  return (
+    <div>
+      <input
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value);
+        }}
+      />
+      <ul>
+        {results.map((job) => (
+          <li key={job.id}>{job.title}</li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+```
+
+The abort is worth writing from the start rather than adding later. It is two lines, it prevents out-of-order responses, and mentioning why you wrote it is a strong signal (see 11).
+
+### Then: debounce, keyboard, ARIA
+
+```jsx
+const debouncedQuery = useDebounce(query, 300);   // effect depends on this instead
+```
+
+```jsx
+const [active, setActive] = useState(-1);
+
+const onKeyDown = (e) => {
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    setActive((i) => Math.min(i + 1, results.length - 1));
+  }
+
+  if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    setActive((i) => Math.max(i - 1, 0));
+  }
+
+  if (e.key === 'Enter' && active >= 0) {
+    onSelect(results[active]);
+  }
+
+  if (e.key === 'Escape') {
+    setResults([]);
+  }
+};
+```
+
+```jsx
+<input
+  role="combobox"
+  aria-expanded={results.length > 0}
+  aria-controls="ac-list"
+  aria-activedescendant={active >= 0 ? `ac-${results[active].id}` : undefined}
+  onKeyDown={onKeyDown}
+/>
+
+<ul id="ac-list" role="listbox">
+  {results.map((job, i) => (
+    <li
+      key={job.id}
+      id={`ac-${job.id}`}
+      role="option"
+      aria-selected={i === active}
+    >
+      {/* title, company */}
+    </li>
+  ))}
+</ul>
+```
+
+`e.preventDefault()` on the arrow keys stops the caret moving inside the input. Resetting `active` to `-1` whenever results change is the detail people miss — otherwise Enter selects an item from the previous result set.
+
+**Follow-ups to expect:** what if two responses arrive out of order (abort, or a query library); how do you close it when the user clicks elsewhere (`useClickOutside`, see 13); why debounce rather than defer (request cost, not render cost, see 18).
+
+## Modal
+
+<Callout kind="brief">
+A dialog that opens over the page, closes on Escape or an overlay click, and is usable without a mouse.
+</Callout>
+
+```jsx
+const Modal = ({ title, onClose, children }) => {
+  const dialogRef = useRef(null);
+  const triggerRef = useRef(null);
+
+  useEffect(() => {
+    triggerRef.current = document.activeElement;
+    dialogRef.current.focus();
+    document.body.style.overflow = 'hidden';
+
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+
+      if (e.key !== 'Tab') {
+        return;
+      }
+
+      const focusable = dialogRef.current.querySelectorAll(
+        'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+
+      if (focusable.length === 0) {
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      }
+
+      if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = '';
+      triggerRef.current?.focus();
+    };
+  }, [onClose]);
+
+  return createPortal(
+    <div className="overlay" onClick={onClose}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
+        tabIndex={-1}
+        ref={dialogRef}
+        onClick={(e) => {
+          e.stopPropagation();
+        }}
+      >
+        <h2 id="modal-title">{title}</h2>
+        {children}
+      </div>
+    </div>,
+    document.body
+  );
+};
+```
+
+Build order: portal and render, then Escape, then focus in, then focus restore, then the trap. If time runs out, the trap is the right thing to be missing — say so rather than leaving it silent.
+
+**Follow-ups:** why a portal at all (stacking contexts, see 25); why restore focus; what the native `<dialog>` would give you for free; how you would test it (see 27).
+
+## Virtualized list, by hand
+
+<Callout kind="brief">
+Render 10,000 rows without freezing the browser. No libraries.
+</Callout>
+
+The whole idea is three numbers: which row is at the top of the viewport, how many fit, and how tall the whole thing would be.
+
+```jsx
+const VirtualList = ({ items, rowHeight = 60, height = 600 }) => {
+  const [scrollTop, setScrollTop] = useState(0);
+  const overscan = 5;
+
+  const total = items.length * rowHeight;
+  const firstVisible = Math.floor(scrollTop / rowHeight);
+  const visibleCount = Math.ceil(height / rowHeight);
+
+  const start = Math.max(0, firstVisible - overscan);
+  const end = Math.min(items.length, firstVisible + visibleCount + overscan);
+
+  const rows = items.slice(start, end);
+
+  return (
+    <div
+      style={{ height, overflowY: 'auto' }}
+      onScroll={(e) => {
+        setScrollTop(e.currentTarget.scrollTop);
+      }}
+    >
+      <div style={{ height: total, position: 'relative' }}>
+        {rows.map((item, i) => (
+          <div
+            key={item.id}
+            style={{
+              position: 'absolute',
+              top: (start + i) * rowHeight,
+              height: rowHeight,
+              width: '100%',
+            }}
+          >
+            {/* row content */}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+```
+
+Twenty rows in the DOM instead of ten thousand. The outer div scrolls, the inner div provides the full height so the scrollbar is honest, and each row is absolutely positioned at its true offset.
+
+**Follow-ups:** variable row heights (measure and cache, or estimate and correct); why not memoize instead (the cost is DOM nodes, see 23); what breaks (find-in-page, scroll restoration); when you would not do this at all (pagination).
+
+## Tabs as compound components
+
+<Callout kind="brief">
+A tab component where the caller controls the labels, the content and the order.
+</Callout>
+
+```jsx
+const TabsContext = createContext(null);
+
+const useTabs = () => {
+  const context = useContext(TabsContext);
+
+  if (context === null) {
+    throw new Error('Tabs parts must be used inside <Tabs>');
+  }
+
+  return context;
+};
+
+export const Tabs = ({ defaultTab, children }) => {
+  const [active, setActive] = useState(defaultTab);
+
+  const value = useMemo(() => {
+    return { active, setActive };
+  }, [active]);
+
+  return (
+    <TabsContext.Provider value={value}>
+      {children}
+    </TabsContext.Provider>
+  );
+};
+
+Tabs.List = ({ children }) => {
+  return <div role="tablist">{children}</div>;
+};
+
+Tabs.Tab = ({ id, children }) => {
+  const { active, setActive } = useTabs();
+  const isActive = active === id;
+
+  return (
+    <button
+      role="tab"
+      id={`tab-${id}`}
+      aria-controls={`panel-${id}`}
+      aria-selected={isActive}
+      tabIndex={isActive ? 0 : -1}
+      onClick={() => {
+        setActive(id);
+      }}
+    >
+      {children}
+    </button>
+  );
+};
+
+Tabs.Panel = ({ id, children }) => {
+  const { active } = useTabs();
+
+  if (active !== id) {
+    return null;
+  }
+
+  return (
+    <div role="tabpanel" id={`panel-${id}`} aria-labelledby={`tab-${id}`}>
+      {children}
+    </div>
+  );
+};
+```
+
+The `tabIndex` line is the detail worth knowing. In a tablist only the active tab is in the tab order, and arrow keys move between the tabs — so the whole group is one Tab stop rather than one per tab. This is the **roving tabindex** pattern, and it applies to toolbars, menus and radio groups too. Getting it right without being asked is a strong signal.
+
+**Follow-ups:** make it controllable (see 24); add arrow-key navigation; why context rather than props; what happens if a part is used outside `Tabs`.
+
+## Saying the right things
+
+| Instead of | Say |
+|---|---|
+| Silently writing a debounce | "This fires per keystroke — I'll debounce it once the basic version works" |
+| Guessing at requirements | "Should selecting a result clear the input or keep it?" |
+| Apologising for missing pieces | "I've left the focus trap out; it needs the focusable-elements query and wrap logic" |
+| Freezing on a blank | "I'd normally reach for the docs here — the shape is an observer with a callback" |
+
+## Gotchas
+
+- Starting with the hardest part leaves nothing rendering when time runs out.
+- Forgetting e.preventDefault() on arrow keys moves the caret while navigating a list.
+- Not resetting the active index when results change selects an item from the previous set.
+- Restoring focus on modal close is invisible with a mouse and the most commonly missed step.
+- A virtualized row without absolute positioning collapses the scroll height.
+- Working in silence. An unstated trade-off reads as a mistake.
+
+## Takeaways
+
+- Restate the requirement, then build the simplest working version.
+- Correctness, then keyboard, then polish — in that order.
+- Name what you are leaving out; unstated omissions look like ignorance.
+- Cancellation, focus restoration and keyboard support are the details that distinguish a considered answer.
+- Knowing when not to build something — pagination over virtualization, a library over a hand-rolled trap — is part of the answer.

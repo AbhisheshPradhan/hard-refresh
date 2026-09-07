@@ -1,0 +1,65 @@
+Everything so far has kept state inside the component that uses it. This part is about what happens when more than one component needs the same value.
+
+The question sounds like a tooling question — Context or Redux? — and it almost never is. Most state problems are placement problems. A value sits too high and re-renders half the app on every keystroke, or too low and has to be threaded through six components that do not care about it, or it is stored in two places that drift apart.
+
+So these chapters work outward. Where should a value live, given who reads it? What do you do when updates get complicated enough that scattered setters stop being readable? What does Context actually solve, and what does it quietly cost? And when is a store worth its weight?
+
+<Figure caption="The default is the leftmost option that works.">
+<svg viewBox="0 0 740 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="State scope widening: one component, two siblings sharing a parent, a subtree via context, and the whole app via a store.">
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="20" y="60" width="150" height="80"/>
+    <rect x="200" y="60" width="150" height="80"/>
+    <rect x="380" y="60" width="150" height="80"/>
+    <rect x="560" y="60" width="160" height="80"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="currentColor" text-anchor="middle">
+    <text x="95" y="40">one component</text>
+    <text x="275" y="40">two siblings</text>
+    <text x="455" y="40">a subtree</text>
+    <text x="640" y="40">the whole app</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" fill="currentColor" text-anchor="middle">
+    <text x="95" y="95">useState</text>
+    <text x="95" y="118">right where it is used</text>
+    <text x="275" y="95">lift to the parent</text>
+    <text x="275" y="118">pass down as props</text>
+    <text x="455" y="95">Context</text>
+    <text x="455" y="118">auth, theme, locale</text>
+    <text x="640" y="95">Redux Toolkit</text>
+    <text x="640" y="118">complex shared updates</text>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2">
+    <path d="M20 176 H720"/>
+  </g>
+  <g fill="currentColor">
+    <path d="M722 176 l-8 -4 v8 z"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" font-style="italic" fill="currentColor">
+    <text x="20" y="200">scope widens</text>
+    <text x="722" y="200" text-anchor="end">cost widens with it</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="currentColor" text-anchor="middle">
+    <text x="370" y="232">move one step right only when the step you are on genuinely stops working</text>
+  </g>
+</svg>
+</Figure>
+
+<Callout kind="build">
+**Place the state deliberately**
+
+No new features. Re-place what you already have and justify each decision out loud.
+
+- Move each piece of state to the lowest component that needs it, and note where that stops being possible.
+- Add a saved-jobs feature shared by two distant components, using context.
+- Split that context so a fast-changing value does not re-render consumers of a slow-changing one.
+- Convert the add-job form to `useReducer` and decide afterwards whether it was worth it.
+- Add undo to the job list with past, present and future stacks.
+
+Then answer the question a reviewer would ask: which of this state is server data pretending to be client state?
+</Callout>
+
+<Callout kind="note">
+**By the end of this part**
+
+You should be able to place a piece of state deliberately and say why, diagnose re-render problems that come from placement rather than rendering, and give a straight answer to "should this go in Redux" — including the cases where the honest answer is that it is server data and belongs in a cache instead (see 16).
+</Callout>

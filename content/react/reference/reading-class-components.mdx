@@ -1,0 +1,133 @@
+---
+title: "Reading class components"
+summary: "Enough to work in a codebase that predates hooks."
+order: 6
+prerequisites: []
+tags: []
+updated: "2026-09-08"
+---
+
+Class components are not deprecated and there is no reason to write new ones — except an error boundary, which still requires a class (see 19). You will read plenty of them, so the mapping is worth knowing.
+
+## The same component, twice
+
+```jsx
+class JobPage extends React.Component {
+  state = { job: null, loading: true };
+
+  async componentDidMount() {
+    const res = await fetch(`/api/jobs/${this.props.id}`);
+    this.setState({ job: await res.json(), loading: false });
+  }
+
+  async componentDidUpdate(prevProps) {
+    if (prevProps.id !== this.props.id) {
+      this.setState({ loading: true });
+      const res = await fetch(`/api/jobs/${this.props.id}`);
+      this.setState({ job: await res.json(), loading: false });
+    }
+  }
+
+  componentWillUnmount() {
+    // cancel anything still running
+  }
+
+  render() {
+    if (this.state.loading) {
+      return <Spinner />;
+    }
+
+    return <JobDetail job={this.state.job} />;
+  }
+}
+```
+
+```jsx
+const JobPage = ({ id }) => {
+  const [job, setJob] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const load = async () => {
+      setLoading(true);
+      const res = await fetch(`/api/jobs/${id}`, { signal: controller.signal });
+      setJob(await res.json());
+      setLoading(false);
+    };
+
+    load();
+
+    return () => {
+      controller.abort();
+    };
+  }, [id]);
+
+  if (loading) {
+    return <Spinner />;
+  }
+
+  return <JobDetail job={job} />;
+};
+```
+
+The class version splits one concern across three methods, and the duplication between mount and update is where bugs live — a prop added to the fetch and not to the comparison, or the unmount case forgotten. The effect expresses the same thing once, with the dependency array replacing the manual `prevProps` check.
+
+## The mapping
+
+| Class | Function equivalent |
+|---|---|
+| constructor / state = | `useState`, with an initializer for expensive setup |
+| componentDidMount | `useEffect(fn, [])` |
+| componentDidUpdate | `useEffect(fn, [deps])` — the array replaces the `prevProps` comparison |
+| componentWillUnmount | The cleanup function returned from an effect |
+| shouldComponentUpdate | `memo`, optionally with a comparator |
+| getDerivedStateFromProps | Usually nothing: compute during render, or reset with a `key` (see 6) |
+| getSnapshotBeforeUpdate | `useLayoutEffect` |
+| getDerivedStateFromError | No equivalent — class only |
+| componentDidCatch | No equivalent — class only |
+| this.forceUpdate() | No equivalent, and no need for one |
+
+## Differences that catch people
+
+**`setState` merges; `useState` replaces.** A class could set one field and keep the rest. With hooks you either spread the object yourself or use one piece of state per field (see 4, 7).
+
+```jsx
+this.setState({ title });                        // other fields preserved
+setForm({ ...form, title });                     // spread required
+```
+
+**`this.props` is always current; a closure is not.** In a class, `this.props` inside a callback reads the latest values — the same code in a function component reads the render it was created in. That is the stale closure problem, and it is a real difference rather than a bug (see 10).
+
+**Method binding.** Older classes bind handlers in the constructor or use arrow class fields; unbound methods lose `this`. Function components have no `this` at all.
+
+**Lifecycle methods with `UNSAFE_` prefixes** — `componentWillMount`, `componentWillReceiveProps`, `componentWillUpdate` — are legacy and unsafe with concurrent rendering, because they can run more than once for a single commit. Treat them as a signal that the file needs attention.
+
+## The one class you might still write
+
+```jsx
+class ErrorBoundary extends React.Component {
+  state = { error: null };
+
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+
+  componentDidCatch(error, info) {
+    logToService(error, info.componentStack);
+  }
+
+  render() {
+    if (this.state.error) {
+      return this.props.fallback;
+    }
+
+    return this.props.children;
+  }
+}
+```
+
+<Callout kind="note">
+**On converting old code.** Rewriting working class components for their own sake is rarely worth the risk. Convert when you are already changing a file substantially, when the lifecycle duplication is causing bugs, or when you need behaviour that is awkward in a class. A codebase with both is normal and fine.
+</Callout>

@@ -1,0 +1,301 @@
+---
+title: "useEffect"
+summary: "Synchronising with the world outside React, and the many times you should not."
+order: 11
+prerequisites: ["react/foundations/lists-and-keys", "react/how-react-works/the-render-cycle", "react/how-react-works/reconciliation-fiber-and-re-renders"]
+tags: []
+updated: "2026-09-04"
+---
+
+An effect connects a component to something React does not control: a server, the document title, a browser API, a third-party widget. It runs after the commit, when the DOM is real (see 8).
+
+That framing is the whole chapter. If nothing outside React is involved, an effect is usually the wrong tool, and most effect bugs are effects that should not exist.
+
+## The dependency array
+
+```jsx
+useEffect(() => {
+  // runs after commit
+  return () => {
+    // cleanup
+  };
+}, [id]);
+```
+
+| Second argument | When the effect runs |
+|---|---|
+| [id] | After this component's first commit, then whenever id changes |
+| [] | After this component's first commit only |
+| omitted | After every commit in which this component rendered |
+
+Commit, not render, and the difference matters. A render can be thrown away — interrupted by an urgent update, superseded before it commits, or run a second time by StrictMode. Effects are attached during the commit and flushed after paint, so a render that never commits runs no effects at all. That is the same reason render must stay pure: work that might be discarded must leave no trace (see 8).
+
+"After paint" is the default rather than the whole rule. When the update came from a discrete input event — a click, a keypress, a submit — React flushes pending effects synchronously before starting the next render, so that an effect scheduled by one click cannot still be waiting when the next one arrives.
+
+Within a single commit there is a second ordering that explains some baffling bugs. React runs the cleanup for *every* effect in the tree before running the setup for *any* of them. Two passes, not one interleaved walk. So if two components subscribe to the same thing, both teardowns happen before either subscription is re-established — which is correct, and which surprises anyone expecting each component to tear down and set up as a unit.
+
+"In which this component rendered" is the other half. If a memoized component is skipped, React never calls it, so its effects are not re-evaluated even though the app committed. This catches people who add `memo` for rendering cost and find the timing of their effects changed too (see 22).
+
+React compares dependencies with `Object.is`, which for objects, arrays and functions means comparing identity rather than contents. Two objects with the same fields are different dependencies. This single fact causes most effect loops.
+
+## Cleanup
+
+The function you return runs before the effect runs again, and once more when the component unmounts. Not only on unmount — that is the common misreading, and it is why cleanup is what makes an effect correct rather than merely tidy.
+
+<Figure caption="Cleanup runs before every re-run, not only at the end.">
+<svg viewBox="0 0 740 235" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="On mount the effect runs after paint; when a dependency changes cleanup runs before the effect runs again; on unmount only cleanup runs.">
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11.5" font-weight="bold" fill="currentColor">
+    <text x="10" y="60">mount</text>
+    <text x="10" y="113">dependency</text>
+    <text x="10" y="127">changed</text>
+    <text x="10" y="180">unmount</text>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="120" y="40" width="100" height="28"/>
+    <rect x="360" y="40" width="100" height="28"/>
+    <rect x="120" y="100" width="100" height="28"/>
+    <rect x="360" y="100" width="100" height="28"/>
+    <rect x="480" y="100" width="100" height="28"/>
+    <rect x="120" y="160" width="100" height="28"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 4">
+    <rect x="240" y="40" width="100" height="28"/>
+    <rect x="240" y="100" width="100" height="28"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2">
+    
+<path d="M342 54 H356"/>
+    <path d="M222 114 H236"/><path d="M342 114 H356"/><path d="M462 114 H476"/>
+  </g>
+  <g fill="currentColor">
+    <path d="M238 54 l-8 -4 v8 z"/><path d="M358 54 l-8 -4 v8 z"/>
+    <path d="M238 114 l-8 -4 v8 z"/><path d="M358 114 l-8 -4 v8 z"/><path d="M478 114 l-8 -4 v8 z"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" fill="currentColor" text-anchor="middle">
+    <text x="170" y="59">commit</text>
+    <text x="290" y="59">paint</text>
+    <text x="410" y="59">effect</text>
+    <text x="170" y="119">commit</text>
+    <text x="290" y="119">paint</text>
+    <text x="410" y="119">cleanup</text>
+    <text x="530" y="119">effect</text>
+    <text x="170" y="179">cleanup</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11.5" font-style="italic" fill="currentColor">
+    <text x="120" y="212">nothing else runs after this</text>
+  </g>
+</svg>
+</Figure>
+
+```jsx
+useEffect(() => {
+  const onResize = () => {
+    setWidth(window.innerWidth);
+  };
+  window.addEventListener('resize', onResize);
+  return () => window.removeEventListener('resize', onResize);
+}, []);
+```
+
+Without the removal, every mount adds another listener and none are ever taken away.
+
+## One job per effect
+
+Effects are split by purpose, not bundled per component. Each gets the dependencies it actually needs, so unrelated things stop re-running together.
+
+```jsx
+const JobPage = ({ id }) => {
+  useEffect(() => { … }, [id]);          // fetch the job
+  useEffect(() => { … }, [job?.title]);  // set the document title
+  useEffect(() => { … }, []);            // keyboard shortcut
+};
+```
+
+## Effects that are not data fetching
+
+Fetching gets the attention, but it is one case among several. Each of these is the same shape: subscribe, then unsubscribe in cleanup.
+
+- Event listeners on window or document.
+- IntersectionObserver for lazy images, impression tracking, infinite scroll (see 23).
+- Writing to localStorage when a value changes.
+- Timers and intervals.
+- Mounting a non-React library into a DOM node, and destroying it on cleanup.
+
+## Race conditions
+
+Requests do not return in the order they were sent. Type quickly, and a response for an earlier query can arrive after a later one and overwrite it.
+
+<Figure caption="The URL says job 2. The screen says job 1.">
+<svg viewBox="0 0 740 190" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A slow first request returns after a faster second request and overwrites the newer result.">
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="120" y="40" width="440" height="26"/>
+    <rect x="260" y="86" width="160" height="26"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" fill="currentColor" text-anchor="middle">
+    <text x="340" y="58">GET /api/jobs/1  —  slow</text>
+    <text x="340" y="104">GET /api/jobs/2  —  fast</text>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 4">
+    
+<path d="M560 36 V130"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" fill="currentColor" text-anchor="middle">
+    <text x="420" y="146">job 2 shown</text>
+    <text x="576" y="146">job 1 overwrites it</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11.5" font-style="italic" fill="currentColor" text-anchor="middle">
+    <text x="370" y="176">the stale response wins because it finished last</text>
+  </g>
+</svg>
+</Figure>
+
+```jsx
+useEffect(() => {
+  const controller = new AbortController();
+
+  const load = async () => {
+    try {
+      const res = await fetch(`/api/jobs/${id}`, { signal: controller.signal });
+      setJob(await res.json());
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        setError(err);
+      }
+    }
+  };
+
+  load();
+  return () => controller.abort();
+}, [id]);
+```
+
+Cleanup aborts the previous request before starting the next. The alternative is an `ignore` flag set in cleanup, which lets the request finish but discards the result — use that when the response is worth caching or the request cannot be cancelled.
+
+## When not to write an effect
+
+Four options for producing a value, in the order you should consider them.
+
+| Situation | Use |
+|---|---|
+| Value derives from props or state | Compute it during render |
+| That computation is genuinely expensive | useMemo (see 22) |
+| Something should happen because the user did something | An event handler |
+| Something outside React must be kept in sync | An effect |
+
+The most common mistake is the first row written as the last.
+
+```jsx
+// an effect and a second piece of state, for a value you already have
+const [filtered, setFiltered] = useState([]);
+
+useEffect(() => {
+  setFiltered(jobs.filter((j) => j.type === type));
+}, [jobs, type]);
+
+// the same thing, computed during render
+const filtered = jobs.filter((j) => j.type === type);
+```
+
+The effect version renders twice for every change — once with the old list, once after the effect sets state — and can show stale results in between. The second version cannot be out of date, because it is recalculated from the current values every time.
+
+Related: to reset state when a prop changes, do not write an effect that calls a setter. Give the component a `key` and let React remount it (see 6, 9).
+
+## Objects in the dependency array
+
+This effect runs forever:
+
+```jsx
+const filters = { type, location };
+
+useEffect(() => {
+  fetchJobs(filters);
+}, [filters]);   // new object identity on every render
+```
+
+The usual fix offered is `useMemo` on `filters`. It works, and it is treating the symptom. The object exists only to be passed to the effect, so the real question is why it is outside.
+
+```jsx
+useEffect(() => {
+  fetchJobs({ type, location });   // built inside, depends on primitives
+}, [type, location]);
+```
+
+Primitives compare by value, so the loop disappears with no memoization to maintain. Reach for `useMemo` only when the object is genuinely needed by several consumers, or when building it is expensive.
+
+## useLayoutEffect
+
+Same API, different timing: it runs inside the commit, after React has updated the DOM but *before* the browser paints. That makes it the tool for measuring a node and adjusting it in the same frame, so the user never sees the intermediate position — positioning a tooltip that would otherwise flash off-screen, for example.
+
+It blocks painting, so it is the more expensive choice and not the default. If the user cannot see the difference, use `useEffect`.
+
+### Why one flickers and the other does not
+
+The difference is what happens when the effect sets state. A layout effect runs while React still has control, so React flushes the resulting render and commit synchronously before handing the frame to the browser. A passive effect runs after the paint, so its update is an ordinary one — a second render, a second commit, and a second frame the user can see.
+
+<Figure caption="The layout effect keeps control long enough to correct itself. The passive effect does not.">
+<svg viewBox="0 0 740 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Setting state in a layout effect produces one paint; setting it in a passive effect produces two paints, which is the visible flicker.">
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11.5" font-weight="bold" fill="currentColor">
+    <text x="40" y="20">setState inside useLayoutEffect</text>
+    <text x="40" y="112">setState inside useEffect</text>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="40" y="30" width="140" height="32"/>
+    <rect x="190" y="30" width="150" height="32"/>
+    <rect x="350" y="30" width="140" height="32"/>
+    <rect x="40" y="122" width="140" height="32"/>
+    <rect x="280" y="122" width="150" height="32"/>
+    <rect x="440" y="122" width="140" height="32"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="2.5">
+    <rect x="500" y="30" width="80" height="32"/>
+    <rect x="190" y="122" width="80" height="32"/>
+    <rect x="590" y="122" width="80" height="32"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="10.5" fill="currentColor" text-anchor="middle">
+    <text x="110" y="50">render → commit</text>
+    <text x="265" y="50">layout effect: setState</text>
+    <text x="420" y="50">render → commit</text>
+    <text x="540" y="50">PAINT</text>
+    <text x="110" y="142">render → commit</text>
+    <text x="230" y="142">PAINT</text>
+    <text x="355" y="142">effect: setState</text>
+    <text x="510" y="142">render → commit</text>
+    <text x="630" y="142">PAINT</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" font-style="italic" fill="currentColor">
+    <text x="40" y="82">one frame — the user never sees the first position</text>
+    <text x="40" y="174">two frames — the first one is the flicker</text>
+  </g>
+</svg>
+</Figure>
+
+Two costs follow. Work inside a layout effect delays the frame, so anything slow there is a dropped frame rather than a slow effect. And setting state in one means React renders and commits twice before painting once, so the frame carries double the work — worth it to remove a visible jump, wasteful otherwise.
+
+  
+### What happens when
+
+  
+An effect depends on `[jobs]` and, inside, calls `setJobs` with a new array built from the old one. What happens?
+
+  
+An infinite loop. The effect sets state, the new array has a new identity, the dependency comparison fails, the effect runs again. The loop is a symptom: state that is derived from other state usually should not be state at all, and the fix is almost always to compute the value during render instead.
+
+## Gotchas
+
+- Effects run after commits, not renders. A discarded or interrupted render runs none — and a component skipped by memo does not re-evaluate its effects at all.
+- Cleanup runs before every re-run, not only on unmount.
+- Aborting rejects the promise. The catch still runs, with an AbortError — filter it, or cancelling a request on purpose shows the user a failure.
+- The effect callback cannot be async. React expects nothing or a cleanup function; declare an async function inside and call it.
+- Inline objects, arrays and functions in the dependency array always differ. Depend on primitives, or move the value inside.
+- An empty dependency array is a claim, not a shortcut. It says the effect reads nothing that changes, and it is how stale closures happen (see 10).
+- Effects do not run on the server, so anything inside one is skipped during server rendering.
+- Two effects running in development means missing cleanup, not a StrictMode bug (see 10).
+
+## Takeaways
+
+- An effect synchronises with something outside React. If nothing external is involved, do not write one.
+- Dependencies are compared by identity, which is why objects and functions cause loops.
+- Cleanup runs before each re-run and on unmount; it is what makes subscriptions and requests correct.
+- One effect per job, each with its own dependencies.
+- Derived values belong in render. Responses to user actions belong in handlers.
+- useLayoutEffect runs before paint and blocks it; use it only to prevent a visible flash.

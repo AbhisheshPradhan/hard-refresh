@@ -1,0 +1,142 @@
+---
+title: "Glossary"
+summary: "Numbers are the chapter where the term is explained."
+order: 10
+prerequisites: []
+tags: []
+updated: "2026-09-08"
+---
+
+## A — C
+
+**Action** *(ch 7)* — A function passed to a form's `action` prop. React tracks its pending state and resets the form on success.
+
+**Activity** *(ch 9)* — A component that hides its children without unmounting them: state and DOM are kept, Effects are cleaned up, updates are lowered in priority.
+
+**Automatic batching** *(ch 9)* — Several state updates in one tick producing a single render, including inside promises and timeouts.
+
+**Bailout** *(ch 9)* — React skipping a component and reusing its existing fibers, because nothing it depends on changed.
+
+**Bitmask lane** *(ch 9)* — How a fiber records an update's priority. Lets React test, batch and entangle sets of work with bitwise operations.
+
+**Barrel file** *(ch 21)* — An `index.js` re-exporting a folder's contents. Tidier imports, at the cost of startup time and tree-shaking.
+
+**Client Component** *(ch beyond the SPA)* — A component marked `'use client'` that ships to the browser and can hold state and handlers.
+
+**Colocation** *(ch 14)* — Keeping state in the component that uses it, and no higher.
+
+**Commit** *(ch 8)* — The phase where React writes changes to the real DOM. Runs to completion and cannot be interrupted.
+
+**Compound component** *(ch 24)* — Several parts that share state through context, so a caller arranges them freely without wiring anything.
+
+**Concurrent rendering** *(ch 9)* — React's ability to pause, resume and abandon a render so urgent work can go first.
+
+**Context** *(ch 14)* — A way to pass a value to a subtree without threading props. Every consumer re-renders when the value changes.
+
+**Controlled component** *(ch 7, 24)* — One whose value comes from props or state rather than being held internally.
+
+**Cursor paging** *(ch 23)* — Requesting what comes after a specific item, rather than a page number. Stable when data changes.
+
+## D — H
+
+**Dependency array** *(ch 11)* — The second argument to `useEffect`, compared by identity to decide whether to run again.
+
+**Derived value** *(ch 11, 14)* — Anything computable from existing props or state. Should be calculated during render, not stored.
+
+**Declarative** *(ch 1)* — Describing what the UI should be for a given state and letting React work out the DOM operations. The opposite of imperative, where you write the steps yourself.
+
+**Double buffering** *(ch 9)* — Keeping two fiber trees and swapping their roles on commit rather than rebuilding.
+
+**Element** *(ch 3, 9)* — The plain object produced by JSX, describing one use of a component. Recreated every render.
+
+**Error boundary** *(ch 19)* — A class component that catches render errors below it and shows a fallback.
+
+**Escape hatch** *(ch Part III)* — A deliberate step outside React's declarative model, for things React does not control.
+
+**Effect event** *(ch 10)* — A function created with `useEffectEvent` that always sees the latest props and state without being a dependency. Callable only from inside an Effect in the same component.
+
+**Fiber** *(ch 9)* — Both React's reconciler and the objects it works with: one per component instance, holding state, hooks and tree pointers.
+
+**Fragment** *(ch 2)* — `<>…</>`. Groups elements without adding a DOM node.
+
+**Higher-order component** *(ch 24)* — A function taking a component and returning a wrapped one. Useful when the wrapper must control rendering.
+
+**Hook** *(ch 2, 10)* — A function beginning with `use` that gives a function component access to React features.
+
+**Hydration** *(ch beyond the SPA)* — React attaching to server-rendered HTML in the browser and taking over.
+
+## I — R
+
+**Immer** *(ch 15)* — The library behind Redux Toolkit that lets you write mutating code and produces immutable state from it.
+
+**Instance** *(ch 3)* — What React keeps on screen for an element, holding its state. One per element rendered.
+
+**JSX** *(ch 2)* — JavaScript XML. A syntax extension, not part of the language, that compiles to function calls returning element objects. Used by several frameworks, not only React.
+
+**Key** *(ch 6)* — The identity of a list item, used to match it to an existing fiber. Prevents remounting, not re-rendering.
+
+**Lifting state** *(ch 14)* — Moving state to the closest common parent of the components that need it.
+
+**Loader** *(ch 17)* — A React Router function that fetches before a route renders, so the component receives data rather than a loading state.
+
+**Memoization** *(ch 22)* — Caching a render or a value so it can be skipped when inputs are unchanged. Requires stable references on both sides.
+
+**Mutation** *(ch 16)* — In a query library, a write operation — with hooks for optimistic updates, rollback and invalidation.
+
+**Normalized state** *(ch 15)* — Storing a collection as ids plus an entities map, so lookups and updates are direct.
+
+**One-way data flow** *(ch 3)* — Props travel down the tree and events travel back up through callbacks. A child can never write to a parent or a sibling.
+
+**Optimistic update** *(ch 7, 16)* — Showing the result before the server confirms, and rolling back if it fails.
+
+**Overscan** *(ch 23)* — Extra rows rendered beyond the viewport in a virtualized list, so fast scrolling shows no blank space.
+
+**Portal** *(ch 25)* — Rendering children into a different DOM node while keeping them in the same React tree.
+
+**Props** *(ch 3)* — Values passed from a parent into a child. Read-only in the child.
+
+**Purity** *(ch 10)* — Same inputs, same output, nothing else changed. Required because a render may run twice or be discarded.
+
+**Query key** *(ch 16)* — The identity of a cache entry. Same key means one shared request and one shared result.
+
+**Reconciliation** *(ch 9)* — Matching new elements against existing fibers to decide what to reuse, update or destroy.
+
+**Reducer** *(ch 14)* — A pure function taking current state and an action and returning the next state.
+
+**Remount** *(ch 6, 9)* — Destroying an instance and creating a new one. State resets, effects re-run, focus is lost.
+
+**Render** *(ch 8)* — React calling a component function and collecting what it returns. Not the same as painting.
+
+**Roving tabindex** *(ch 28)* — A group where only the active item is in the tab order and arrow keys move between items.
+
+## S — Z
+
+**Selector** *(ch 15)* — A function reading part of a store. Results are compared by reference, so derived values need memoizing.
+
+**Single source of truth** *(ch 3, 14)* — One component owns a value and everything else receives it through props, so there is one place to look when it is wrong.
+
+**Server Component** *(ch beyond the SPA)* — A component that runs only on the server, never ships to the browser, and cannot hold state.
+
+**Slice** *(ch 15)* — In Redux Toolkit, the state, reducers and generated action creators for one area of an app.
+
+**Stale closure** *(ch 10)* — A function outliving the render that created it, still holding that render's values.
+
+**State** *(ch 4)* — Data a component owns and can change, where changing it schedules a render.
+
+**StrictMode** *(ch 10)* — A development-only wrapper that double-invokes components and remounts effects to expose impurity and missing cleanup.
+
+**Suspense** *(ch 18)* — A boundary declaring what to render while something inside it is not ready.
+
+**Thunk** *(ch 15)* — An async action in Redux, producing pending, fulfilled and rejected actions.
+
+**Transition** *(ch 9, 18)* — An update marked non-urgent, so it can be interrupted by typing or clicking.
+
+**Update queue** *(ch 4)* — The list of pending updates on a hook's slot. Walked in order at the next render, starting from the last committed value.
+
+**Uncontrolled component** *(ch 7, 24)* — One that keeps its own value, read when needed rather than tracked on every change.
+
+**Virtual DOM** *(ch 9)* — The element tree: a disposable description of what the UI should be, recreated every render.
+
+**Virtualization** *(ch 23)* — Rendering only the rows in view plus a buffer, with a spacer providing the full scroll height.
+
+**Work-in-progress tree** *(ch 9)* — The fiber tree being built during a render, which becomes current when it commits.

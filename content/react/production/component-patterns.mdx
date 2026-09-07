@@ -1,0 +1,335 @@
+---
+title: "Component patterns"
+summary: "Designing a component's interface so it survives the next requirement."
+order: 24
+prerequisites: ["react/foundations/forms", "react/effects-and-refs/custom-hooks", "react/data-and-architecture/authentication-patterns"]
+tags: []
+updated: "2026-09-04"
+---
+
+A component has two designs: what it renders, and what it asks callers for. The second is the one that decides whether the next requirement is a new prop or a rewrite.
+
+## The prop explosion
+
+Every configuration prop starts reasonably.
+
+```jsx
+<Modal
+  title="Delete job"
+  body="This cannot be undone."
+  confirmLabel="Delete"
+  cancelLabel="Cancel"
+  showIcon
+  iconType="warning"
+  hideFooter={false}
+  footerAlign="right"
+  onConfirm={…}
+/>
+```
+
+Then someone needs a form inside the body, and a second button, and a checkbox in the footer. Each request adds a prop and a branch, and the component accumulates conditionals nobody can safely remove.
+
+The signal is that new requirements mean editing the component rather than calling it differently.
+
+## Composition
+
+Give the caller slots instead of options. The component owns behaviour and structure; the caller owns content.
+
+```jsx
+<Modal onClose={close}>
+  <Modal.Header>Delete job</Modal.Header>
+
+  <Modal.Body>
+    <p>This cannot be undone.</p>
+    <label>
+      <input type="checkbox" /> Also remove applicants
+    </label>
+  </Modal.Body>
+
+  <Modal.Footer>
+    <Button variant="ghost" onClick={close}>Cancel</Button>
+    <Button variant="danger" onClick={confirm}>Delete</Button>
+  </Modal.Footer>
+</Modal>
+```
+
+The checkbox needed no change to `Modal`. Focus trapping, escape handling and the overlay still live in one place (see 25).
+
+<Figure caption="Who decides what goes inside is the whole design question.">
+<svg viewBox="0 0 740 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Configuration passes options into a closed component; composition gives the caller slots to fill.">
+  <g font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="currentColor" text-anchor="middle">
+    <text x="175" y="24">configuration</text>
+    <text x="560" y="24">composition</text>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="60" y="42" width="230" height="34"/>
+    <rect x="60" y="110" width="230" height="70"/>
+    <rect x="445" y="42" width="230" height="34"/>
+    <rect x="445" y="110" width="230" height="70"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 4">
+    <rect x="465" y="126" width="190" height="18"/>
+    <rect x="465" y="152" width="190" height="18"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2">
+    
+<path d="M560 76 V108"/>
+  </g>
+  <g fill="currentColor">
+    <path d="M175 110 l-4 -8 h8 z"/><path d="M560 110 l-4 -8 h8 z"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" fill="currentColor" text-anchor="middle">
+    <text x="175" y="63">caller passes options</text>
+    <text x="175" y="140">Modal decides</text>
+    <text x="175" y="160">everything inside</text>
+    <text x="560" y="63">caller passes content</text>
+    <text x="560" y="139">slot</text>
+    <text x="560" y="165">slot</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" font-style="italic" fill="currentColor" text-anchor="middle">
+    <text x="175" y="205">a new requirement means a new prop</text>
+    <text x="560" y="205">a new requirement means new children</text>
+  </g>
+</svg>
+</Figure>
+
+## Compound components
+
+The `Modal.Header` style above is a compound component: several pieces that only make sense together, sharing state implicitly through context so the caller never wires it up.
+
+```jsx
+const TabsContext = createContext(null);
+
+export const Tabs = ({ defaultTab, children }) => {
+  const [active, setActive] = useState(defaultTab);
+
+  const value = useMemo(() => {
+    return { active, setActive };
+  }, [active]);
+
+  return <TabsContext.Provider value={value}>{children}</TabsContext.Provider>;
+};
+
+const useTabs = () => {
+  const context = useContext(TabsContext);
+
+  if (context === null) {
+    throw new Error('Tabs parts must be used inside <Tabs>');
+  }
+
+  return context;
+};
+
+Tabs.Tab = ({ id, children }) => {
+  const { active, setActive } = useTabs();
+
+  return (
+    <button
+      role="tab"
+      aria-selected={active === id}
+      onClick={() => {
+        setActive(id);
+      }}
+    >
+      {children}
+    </button>
+  );
+};
+
+Tabs.Panel = ({ id, children }) => {
+  const { active } = useTabs();
+
+  if (active !== id) {
+    return null;
+  }
+
+  return <div role="tabpanel">{children}</div>;
+};
+```
+
+```jsx
+<Tabs defaultTab="description">
+  <Tabs.Tab id="description">Description</Tabs.Tab>
+  <Tabs.Tab id="company">Company</Tabs.Tab>
+
+  <Tabs.Panel id="description">{job.description}</Tabs.Panel>
+  <Tabs.Panel id="company">{job.company.description}</Tabs.Panel>
+</Tabs>
+```
+
+The caller controls layout and order without knowing how selection works. The thrown error in `useTabs` matters: without it, using a `Tabs.Tab` outside `Tabs` fails with a confusing null reference instead of a sentence explaining the mistake.
+
+## Controlled and uncontrolled components
+
+The same distinction as form inputs (see 7), applied to your own components. Uncontrolled owns its state; controlled takes it from the caller.
+
+```jsx
+<Tabs defaultTab="description" />                    // uncontrolled
+<Tabs activeTab={tab} onTabChange={setTab} />        // controlled
+```
+
+Supporting both is a small amount of work and makes a component far more reusable.
+
+```jsx
+const Tabs = ({ defaultTab, activeTab, onTabChange, children }) => {
+  const [internal, setInternal] = useState(defaultTab);
+  const isControlled = activeTab !== undefined;
+  const active = isControlled ? activeTab : internal;
+
+  const setActive = (id) => {
+    if (!isControlled) {
+      setInternal(id);
+    }
+
+    onTabChange?.(id);
+  };
+};
+```
+
+`onTabChange` fires in both modes, so a caller can react to changes without taking ownership. The naming convention is worth following: `defaultX` for the uncontrolled initial value, `X` plus `onXChange` for controlled.
+
+**Default:** uncontrolled, with a callback. Callers who need control opt in; the rest write one prop. Controlled-only forces every caller to hold state they may not want.
+
+## Patterns you will read but rarely write
+
+Before hooks, sharing stateful logic required wrapping a component. Both patterns below still work and appear throughout older codebases.
+
+### Render props
+
+```jsx
+<MouseTracker
+  render={({ x, y }) => {
+    return <Tooltip x={x} y={y} />;
+  }}
+/>
+```
+
+A component that manages state and hands it to a function you supply. A custom hook does this with less machinery and no extra node in the tree (see 13).
+
+### Higher-order components
+
+```jsx
+export default withAuth(AddJobPage);
+```
+
+A function that takes a component and returns a wrapped one. Their drawbacks are what motivated hooks: an extra layer in the tree per wrapper, prop-name collisions when several are composed, no indication in the child of where a prop came from, and awkward typing.
+
+### Hook or HOC
+
+<Figure caption="The wrapper is a gate in front. The hook is a reading from inside.">
+<svg viewBox="0 0 740 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A higher-order component sits between the parent and the component and decides whether it renders; a hook runs inside the component, which is already rendering by then.">
+  <g font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="currentColor" text-anchor="middle">
+    <text x="180" y="20">higher-order component</text>
+    <text x="560" y="20">hook</text>
+  </g>
+
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="105" y="36" width="150" height="28"/>
+    <rect x="70" y="98" width="220" height="42"/>
+    <rect x="40" y="200" width="130" height="30"/>
+    <rect x="196" y="200" width="150" height="30"/>
+    <rect x="485" y="36" width="150" height="28"/>
+    <rect x="420" y="98" width="280" height="132"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 4">
+    <rect x="448" y="140" width="224" height="34"/>
+  </g>
+
+  <g fill="none" stroke="currentColor" stroke-width="1.2">
+    
+<path d="M180 140 V172 H105 V198"/>
+    <path d="M180 140 V172 H271 V198"/>
+    <path d="M560 64 V96"/>
+  </g>
+  <g fill="currentColor">
+    <path d="M180 98 l-4 -8 h8 z"/>
+    <path d="M105 200 l-4 -8 h8 z"/>
+    <path d="M271 200 l-4 -8 h8 z"/>
+    <path d="M560 98 l-4 -8 h8 z"/>
+  </g>
+
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" fill="currentColor" text-anchor="middle">
+    <text x="180" y="55">parent</text>
+    <text x="180" y="115">withAuth wrapper</text>
+    <text x="180" y="131">runs first — is there a user?</text>
+    <text x="105" y="220">AddJobPage</text>
+    <text x="271" y="220">Navigate to /login</text>
+    <text x="560" y="55">parent</text>
+    <text x="560" y="125">AddJobPage — already rendering</text>
+    <text x="560" y="162">useAuth() returns {"{ user }"}</text>
+    <text x="560" y="205">can branch on the value,</text>
+    <text x="560" y="221">but the component is running</text>
+  </g>
+
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" font-style="italic" fill="currentColor" text-anchor="middle">
+    <text x="180" y="255">the component never runs</text>
+    <text x="180" y="271">on this branch</text>
+    <text x="370" y="310">the wrapper decides whether the component runs;</text>
+    <text x="370" y="326">the hook tells it what to do once it already is</text>
+  </g>
+</svg>
+</Figure>
+
+| Hook | HOC |
+|---|---|
+| Gives the component a value | Decides whether the component renders at all |
+| No wrapper in the tree | Adds a layer per wrapper |
+| Obvious where values come from | Props appear from nowhere |
+| Composes by calling | Composes by nesting |
+
+**Default: a hook.** Reach for an HOC when the wrapper must control rendering itself — redirecting before the component renders, wrapping it in a provider or an error boundary. `withAuth` is the honest example: a hook inside the component cannot stop that component from rendering (see 20).
+
+## Hooks, HOCs, context and stores
+
+These four get listed as alternatives constantly, and only two pairs of them actually compete. They answer different questions.
+
+| Tool | Answers |
+|---|---|
+| Custom hook | How do I reuse stateful logic? (13) |
+| Higher-order component | How do I wrap a component's rendering? |
+| Context | How do I get a value deep into the tree without drilling? (14) |
+| State manager | Where does shared state live, and how is it updated? (15) |
+
+So the genuine comparisons are hook against HOC, both about reusing logic, and context against a store, both about shared state. Comparing a hook to Redux is comparing a technique to a location — they are not substitutes, and an answer that treats them as such is a signal the distinction has not landed.
+
+In practice they compose. The job board's auth uses all four ideas at once:
+
+```jsx
+// context holds the value
+<AuthProvider>{children}</AuthProvider>
+
+// a hook reads it
+const { user } = useAuth();
+
+// an HOC decides whether a component renders at all
+export default withAuth(AddJobPage);
+```
+
+The order to reach for them: colocated state first, then a hook if the logic repeats, then context if the value is needed deep and widely, then a store if updates become complex enough to want actions and devtools. An HOC is not on that ladder at all — it is a wrapper you add when rendering itself needs guarding.
+
+  
+### What happens when
+
+  
+A `Modal` takes twelve configuration props. A designer asks for a form with two fields inside the body. What does the change look like?
+
+  
+Either a thirteenth prop taking JSX — which is composition arriving through the back door — or a new `FormModal` duplicating the overlay, focus trap and escape handling. Both are worse than having taken `children` from the start, and both are the moment to refactor rather than add.
+
+## Gotchas
+
+- Compound parts used outside their parent should throw a clear error, not fail on a null context.
+- Switching between controlled and uncontrolled mid-life — passing undefined then a value — warns and behaves oddly. Decide at mount.
+- A component that takes both children and a content prop has two ways to do one thing; pick one.
+- HOCs need displayName, or DevTools fills with anonymous wrappers (see 20).
+- Abstracting on the first repetition is usually premature. Wait for the second or third, when the shape is clear.
+- Compound components rely on context, so every part re-renders when the shared value changes (see 14).
+
+## Takeaways
+
+- The interface a component asks for determines how it copes with new requirements.
+- Configuration props accumulate; slots do not. Prefer children for content.
+- Compound components share state through context so callers control layout without wiring.
+- Support uncontrolled with a callback by default, and controlled for callers who need it.
+- Render props and HOCs are the pre-hooks answers to logic reuse; you will read them more than write them.
+- Use an HOC only when the wrapper must decide whether the component renders — it is a gate in front; a hook is a reading from inside.

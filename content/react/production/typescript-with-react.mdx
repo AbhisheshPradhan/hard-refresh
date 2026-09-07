@@ -1,0 +1,242 @@
+---
+title: "TypeScript with React"
+summary: "Converting the job board, and the types that carry their weight."
+order: 26
+prerequisites: ["react/effects-and-refs/useref", "react/data-and-architecture/project-structure"]
+tags: []
+updated: "2026-09-04"
+---
+
+This chapter takes the components from earlier chapters and adds types to them, in the order you would actually do it. The aim is not maximum type coverage — it is catching the mistakes that would otherwise reach the browser, without turning every component into a type puzzle.
+
+## Start with the data
+
+Types for the domain come first, because everything else derives from them.
+
+```jsx
+// features/jobs/types.ts
+export type JobType = 'Full-Time' | 'Part-Time' | 'Remote' | 'Internship';
+
+export interface Company {
+  name: string;
+  description: string;
+  contactEmail: string;
+  contactPhone?: string;      // optional: may be absent
+}
+
+export interface Job {
+  id: string;
+  title: string;
+  type: JobType;
+  location: string;
+  description: string;
+  salary: string;
+  company: Company;
+}
+```
+
+`JobType` as a union rather than `string` is where most of the value is. Autocomplete offers the four options, a typo is caught at the keystroke, and adding a fifth makes the compiler point at every place that switches on it.
+
+**On `interface` versus `type`:** for object shapes they are close to interchangeable. Use `interface` for objects and `type` for unions and everything else, and stop thinking about it.
+
+## Props
+
+```jsx
+// before
+const JobCard = ({ job, onSelect }) => { … };
+
+// after
+interface JobCardProps {
+  job: Job;
+  onSelect: (id: string) => void;
+  variant?: 'compact' | 'full';
+}
+
+const JobCard = ({ job, onSelect, variant = 'full' }: JobCardProps) => { … };
+```
+
+Note the callback type. `(id: string) => void` documents what the parent receives, and catches the classic mistake of passing the whole job where an id was expected.
+
+### children and other React types
+
+```jsx
+interface CardProps {
+  children: React.ReactNode;        // anything renderable
+  icon?: React.ReactElement;        // specifically an element
+  bg?: string;
+}
+```
+
+| Type | Accepts |
+|---|---|
+| `ReactNode` | Elements, strings, numbers, arrays, null — use this for children |
+| `ReactElement` | A single JSX element only |
+| `ComponentType<P>` | A component itself, for HOCs and render props |
+
+### Extending native elements
+
+```jsx
+interface ButtonProps extends React.ComponentProps<'button'> {
+  variant?: 'primary' | 'danger' | 'ghost';
+}
+
+const Button = ({ variant = 'primary', ...rest }: ButtonProps) => {
+  return <button className={variant} {...rest} />;
+};
+```
+
+Now `disabled`, `type`, `aria-label`, `onClick` and `ref` are all typed correctly without listing them. This is the pattern for any component wrapping a native element.
+
+## State
+
+```jsx
+const [query, setQuery] = useState('');                     // inferred as string
+const [jobs, setJobs] = useState<Job[]>([]);                // [] would infer never[]
+const [job, setJob] = useState<Job | null>(null);           // null needs the union
+const [status, setStatus] = useState<Status>('idle');
+```
+
+Inference handles most cases. Annotate when the initial value does not represent the eventual type: an empty array, `null`, or a string that is really a union member.
+
+### Status as a union
+
+```jsx
+type Status = 'idle' | 'submitting' | 'success' | 'error';
+```
+
+This is the form's state machine from chapter 7, now enforced. A typo in `'submiting'` is a compile error, and a `switch` over the four states can be checked for exhaustiveness — add a fifth status and every switch that does not handle it fails to compile.
+
+## Events and refs
+
+```jsx
+const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  setQuery(e.target.value);
+};
+
+const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
+};
+
+const inputRef = useRef<HTMLInputElement>(null);
+const timerRef = useRef<number | null>(null);
+```
+
+Handlers defined inline on a JSX attribute have their event inferred, so annotation is only needed for handlers declared separately.
+
+DOM refs are typed by the element and initialised with `null`, which is why every use needs a check — `inputRef.current?.focus()`. That is not an inconvenience; it is the compiler reminding you the node does not exist during the first render (see 12).
+
+## Reducers
+
+A discriminated union of actions is where TypeScript pays for itself most obviously.
+
+```jsx
+type JobAction =
+  | { type: 'added'; job: Job }
+  | { type: 'deleted'; id: string }
+  | { type: 'updated'; job: Job };
+
+const jobsReducer = (state: Job[], action: JobAction): Job[] => {
+  switch (action.type) {
+    case 'added': {
+      return [...state, action.job];   // action.job is known to exist
+    }
+    case 'deleted': {
+      return state.filter((job) => job.id !== action.id);
+    }
+    case 'updated': {
+      return state.map((job) => (job.id === action.job.id ? action.job : job));
+    }
+  }
+};
+```
+
+Inside each case, TypeScript narrows the action to that variant — so `action.id` is available in `'deleted'` and a compile error in `'added'`. Dispatching an action with a missing or misspelled field fails immediately.
+
+## Context
+
+```jsx
+interface AuthContextValue {
+  user: User | null;
+  isLoading: boolean;
+  login: (credentials: Credentials) => Promise<void>;
+  logout: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+export const useAuth = (): AuthContextValue => {
+  const context = useContext(AuthContext);
+
+  if (context === null) {
+    throw new Error('useAuth must be used inside AuthProvider');
+  }
+
+  return context;   // narrowed: callers get a non-null value
+};
+```
+
+The pattern is worth learning as a unit. The context is nullable so it can have a default, the hook throws if the provider is missing, and after the throw TypeScript narrows the type — so every consumer gets a non-null value without writing a check.
+
+## Custom hooks and generics
+
+```jsx
+export const useLocalStorage = <T,>(key: string, initialValue: T) => {
+  const [value, setValue] = useState<T>(() => {
+    const stored = localStorage.getItem(key);
+    return stored ? (JSON.parse(stored) as T) : initialValue;
+  });
+
+  return [value, setValue] as const;   // a tuple, not (T | setter)[]
+};
+```
+
+Two details. The trailing comma in `<T,>` is needed in `.tsx` files, where `<T>` alone parses as JSX. And `as const` makes the return a tuple so destructuring gives the right type to each element — without it you get an array of the union, and the setter is not callable.
+
+## What not to do
+
+| Avoid | Instead |
+|---|---|
+| any | unknown and narrow it, or write the type |
+| as to silence an error | Fix the type, or narrow with a check |
+| React.FC | Type the props parameter directly |
+| A global types.ts | Types beside the code they describe (see 21) |
+| Typing what inference already knows | Let it infer; annotate boundaries |
+
+`as` deserves emphasis. It does not convert anything — it tells the compiler to stop checking, which means the error you silenced becomes a runtime error later. The exception is genuinely unknowable data, such as a parsed API response, and that is better handled by validating it.
+
+### API responses are not typed
+
+```jsx
+const res = await fetch('/api/jobs');
+const jobs = await res.json() as Job[];   // a claim, not a check
+```
+
+`res.json()` returns `any`. Asserting `Job[]` tells the compiler what you hope for, and nothing verifies it — if the API changes a field, TypeScript stays silent and the failure appears somewhere unrelated. For anything important, validate at the boundary with a schema library such as Zod, which checks at runtime and derives the type from the same definition.
+
+  
+### What happens when
+
+  
+The API renames `salary` to `salaryRange`, and the front end types the response with `as Job[]`. When does anyone find out?
+
+  
+At runtime, when a card renders `undefined` — or later, when something calls a string method on it and throws. The assertion suppressed exactly the check that would have caught it. With runtime validation at the boundary, the fetch fails immediately with a message naming the field.
+
+## Gotchas
+
+- useState([]) infers never[], so pushing anything in is an error. Annotate the generic.
+- as disables checking rather than converting. The error moves to runtime.
+- res.json() is any, so typed API responses are assumptions unless validated.
+- `<T>` in a `.tsx` file parses as JSX. Write `<T,>`.
+- Without as const, a returned tuple widens to an array of the union type.
+- Optional props are T | undefined, so a default value is not optional in the body unless you provide one.
+
+## Takeaways
+
+- Type the domain first; components follow from it.
+- String unions for fixed sets — job types, statuses — are the highest-value types you will write.
+- Extend `ComponentProps<'button'>` rather than listing native props.
+- Annotate state when the initial value does not represent the eventual type.
+- Discriminated unions make reducers and state machines checkable.
+- A nullable context plus a throwing hook gives consumers a non-null value for free.
+- Avoid any and as; validate API data at the boundary rather than asserting it.

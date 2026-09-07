@@ -1,0 +1,265 @@
+---
+title: "Forms"
+summary: "Controlled inputs, submission, and the states a real form moves through."
+order: 7
+prerequisites: ["react/foundations/state-with-usestate", "react/foundations/events-and-conditional-rendering"]
+tags: []
+updated: "2026-09-04"
+---
+
+An input in the browser holds its own value. In React you usually want state to hold it instead, so the rest of the component can read it, validate it and submit it. An input wired that way is **controlled**.
+
+```jsx
+const [title, setTitle] = useState('');
+
+<input
+  id="title"
+  value={title}
+  onChange={(e) => {
+    setTitle(e.target.value);
+  }}
+/>
+```
+
+Two props, always together. `value` makes state the source of truth; `onChange` writes back to it. Supply `value` alone and React warns, and the field appears frozen — the displayed value comes from state and nothing updates the state.
+
+## The three input shapes
+
+```jsx
+// text, textarea, select — all use value
+<textarea value={description} onChange={(e) => { setDescription(e.target.value); }} />
+
+<select value={type} onChange={(e) => { setType(e.target.value); }}>
+  <option value="Full-Time">Full-Time</option>
+  <option value="Remote">Remote</option>
+</select>
+
+// checkboxes use checked, and read e.target.checked
+<input
+  type="checkbox"
+  checked={remoteOnly}
+  onChange={(e) => {
+    setRemoteOnly(e.target.checked);
+  }}
+/>
+```
+
+A `<select>`'s initial state must match one of its option values exactly. Start it as `''` and the browser shows the first option while state says empty, so an untouched dropdown submits nothing.
+
+## One state per field, or one object
+
+|  | One per field | One object |
+|---|---|---|
+| Reading | title | form.title |
+| Writing | `setTitle(v)` | `setForm({ ...form, title: v })` |
+| Best for | A handful of fields | Many fields, or resetting all at once |
+
+The object version needs the spread every time, and forgetting it silently wipes the other fields (see 4). With one state per field that mistake is impossible. Either is fine; be consistent within a form.
+
+## Submitting
+
+```jsx
+const submitForm = (e) => {
+  e.preventDefault();
+
+  const newJob = {
+    title,
+    type,
+    description,
+    salary,
+    company: {
+      name: companyName,
+      contactEmail,
+    },
+  };
+
+  addJobSubmit(newJob);
+};
+
+<form onSubmit={submitForm}>
+```
+
+`e.preventDefault()` stops the native submission, which would reload the page and destroy the whole application (see 5). Put the handler on the `<form>` rather than the button, so pressing Enter in a field submits too.
+
+Build the submitted object to match the API's shape, not the form's layout — which is why `companyName` becomes `company.name` here.
+
+## A form is a state machine
+
+The version above ignores everything that happens after the user clicks. A real form moves through states, and each one changes what is on screen.
+
+<Figure caption="Four states. Disabled buttons, spinners and error messages are all derived from which one you are in.">
+<svg viewBox="0 0 740 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A form moves from idle to submitting, then to either success or error, and error returns to idle when the user edits.">
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="30" y="70" width="130" height="34"/>
+    <rect x="240" y="70" width="140" height="34"/>
+    <rect x="460" y="20" width="130" height="34"/>
+    <rect x="460" y="120" width="130" height="34"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2">
+    
+<path d="M382 87 V37 H454"/>
+    <path d="M382 87 V137 H454"/>
+    <path d="M525 154 V180 H95 V106"/>
+  </g>
+  <g fill="currentColor">
+    <path d="M236 87 l-8 -4 v8 z"/>
+    <path d="M456 37 l-8 -4 v8 z"/>
+    <path d="M456 137 l-8 -4 v8 z"/>
+    <path d="M95 104 l-4 -8 h8 z"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="currentColor" text-anchor="middle">
+    <text x="95" y="91">idle</text>
+    <text x="310" y="91">submitting</text>
+    <text x="525" y="41">success</text>
+    <text x="525" y="141">error</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="10.5" font-style="italic" fill="currentColor" text-anchor="middle">
+    <text x="198" y="78">submit</text>
+    <text x="300" y="196">user edits a field</text>
+  </g>
+</svg>
+</Figure>
+
+```jsx
+const [status, setStatus] = useState('idle');
+const [error, setError] = useState(null);
+
+const submitForm = async (e) => {
+  e.preventDefault();
+  setStatus('submitting');
+  setError(null);
+
+  try {
+    await addJobSubmit(newJob);
+    setStatus('success');
+  } catch (err) {
+    setError(err.message);
+    setStatus('error');
+  }
+};
+
+<button disabled={status === 'submitting'}>
+  {status === 'submitting' ? 'Saving…' : 'Add Job'}
+</button>
+```
+
+One `status` string beats three booleans. Booleans allow impossible combinations — submitting and success at once — and every render has to guard against them.
+
+Disabling the button while submitting is not a detail. Without it, an impatient double click sends two jobs.
+
+### Server errors belong on fields
+
+Validation that only the server can do — a duplicate email, a rejected payment — comes back after submission and needs to land next to the field it concerns.
+
+```jsx
+const [fieldErrors, setFieldErrors] = useState({});
+
+// after a failed request
+setFieldErrors({ contactEmail: 'That address is already registered' });
+
+<input
+  id="contactEmail"
+  value={contactEmail}
+  aria-invalid={Boolean(fieldErrors.contactEmail)}
+  aria-describedby="email-error"
+  onChange={…}
+/>
+
+{fieldErrors.contactEmail && (
+  <p id="email-error">{fieldErrors.contactEmail}</p>
+)}
+```
+
+## Uncontrolled inputs
+
+The alternative is to let the DOM keep the value and read it only on submit.
+
+```jsx
+<form onSubmit={(e) => {
+  e.preventDefault();
+  const data = new FormData(e.target);
+  save(Object.fromEntries(data));
+}}>
+  <input name="title" defaultValue={job.title} />
+</form>
+```
+
+The same idea with a ref per field, which you will also see, and which suits a form where you want a handle on the element as well as its value:
+
+```jsx
+const emailRef = useRef(null);
+
+<input type="email" ref={emailRef} defaultValue={user.email} />
+
+// on submit
+const email = emailRef.current.value;
+```
+
+Note `defaultValue` rather than `value`: it sets the initial value and then leaves the field alone. This is genuinely simpler when nothing needs to react to typing. Choose controlled when the UI depends on the current value — live validation, a character count, a disabled button, a filtered list. Choose uncontrolled when you only need the values at the end.
+
+## Actions
+
+React can manage the pending state for you. Passing a function to a form's `action` makes it an Action: React calls it with the form data, tracks pending state, and resets the form on success.
+
+```jsx
+const [state, formAction, isPending] = useActionState(
+  async (previousState, formData) => {
+    try {
+      await addJob(Object.fromEntries(formData));
+      return { ok: true };
+    } catch (err) {
+      return { error: err.message };
+    }
+  },
+  { ok: false }
+);
+
+<form action={formAction}>
+  <input name="title" />
+  <button disabled={isPending}>
+    {isPending ? 'Saving…' : 'Add Job'}
+  </button>
+</form>
+```
+
+The state machine above is now handled by the hook. `useFormStatus` lets a nested button read the pending state without prop drilling, and `useOptimistic` shows the new value immediately and reverts automatically if the action fails (see 16 for the version that updates a shared cache).
+
+## Forms at scale
+
+Past a dozen fields with validation, the boilerplate stops being worth writing by hand. React Hook Form is the common answer: it keeps inputs uncontrolled for performance, so typing in one field does not re-render the whole form, and handles registration, validation and error state. Pair it with a schema library such as Zod and the validation rules and the TypeScript types come from one definition rather than two that drift (see 26).
+
+```jsx
+const { register, handleSubmit, formState: { errors } } = useForm();
+
+<form onSubmit={handleSubmit(onValid)}>
+  <input {...register('title', { required: 'Title is required' })} />
+  {errors.title && <p>{errors.title.message}</p>}
+</form>
+```
+
+  
+### What happens when
+
+  
+A form has `const [type, setType] = useState('')` and a select whose first option is `<option value="Full-Time">`. The user submits without touching the dropdown. What is sent?
+
+  
+An empty string. The browser displays the first option because a select with no matching value shows its first, but state was never updated — nothing changed, so `onChange` never fired. Initialise the state to `'Full-Time'`, or add an explicit placeholder option with an empty value so the mismatch is visible.
+
+## Gotchas
+
+- value without onChange gives a read-only field and a console warning.
+- Switching value from undefined to a string flips an input from uncontrolled to controlled and warns. Initialise with '', never undefined.
+- Checkboxes use checked and e.target.checked, not value.
+- Labels use htmlFor, and a label without one is a real accessibility failure, not a lint nit (see 25).
+- Put onSubmit on the form, not on the button, so Enter works.
+- Client validation is for the user, not for safety. The server must validate too.
+
+## Takeaways
+
+- A controlled input pairs value with onChange; a select's initial state must match an option.
+- One state per field avoids the spread mistakes of a single object.
+- e.preventDefault() on submit, and shape the payload for the API.
+- Model the form as idle, submitting, success, error — one status value, not several booleans.
+- Disable the submit button while submitting.
+- Uncontrolled inputs are fine when nothing depends on the value until submit; Actions and React Hook Form take over the boilerplate at scale.

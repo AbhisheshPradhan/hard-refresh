@@ -1,0 +1,66 @@
+React's model is declarative: describe what the screen should look like for the current state, and React makes it so. An **escape hatch** is a deliberate step outside that model, for things React does not control.
+
+Real applications cannot stay inside. They talk to servers, read from `localStorage`, listen for scroll, focus an input, measure a node, mount a charting library that wants a DOM element of its own. None of that is a function of state, and no amount of describing the UI will make it happen.
+
+React's answer is not to pretend everything fits the model. It is to provide a small number of named exits, so that stepping outside is explicit and visible rather than smuggled into a render.
+
+The word hatch is doing work. Each exit gives up a guarantee React was making for you. A ref will not re-render, so what is on screen can silently disagree with the value. An effect runs after the fact, can leak if it does not clean up, and can hold values from a render that finished long ago. You open a hatch to get something done, and then you come back inside.
+
+<Figure caption="Two ways out, and a way to wrap them up so you only write each one once.">
+<svg viewBox="0 0 740 290" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Inside React, props and state produce JSX and React owns the DOM; useEffect and useRef are the crossings out to servers, browser APIs, DOM nodes and third-party libraries.">
+  <g fill="none" stroke="currentColor" stroke-width="2">
+    <rect x="30" y="60" width="300" height="170"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="450" y="66" width="260" height="58"/>
+    <rect x="450" y="166" width="260" height="58"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="bold" fill="currentColor" text-anchor="middle">
+    <text x="180" y="44">Inside React</text>
+    <text x="580" y="44">Outside React</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="currentColor" text-anchor="middle">
+    <text x="180" y="108">props and state in, JSX out</text>
+    <text x="180" y="134">React owns this DOM</text>
+    <text x="180" y="160">pure, and safe to run again</text>
+    <text x="580" y="90">servers, timers, listeners,</text>
+    <text x="580" y="108">storage, subscriptions</text>
+    <text x="580" y="190">DOM nodes to focus, scroll</text>
+    <text x="580" y="208">or measure; other libraries</text>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <path d="M332 95 H444"/>
+    <path d="M332 195 H444"/>
+  </g>
+  <g fill="currentColor">
+    <path d="M446 95 l-8 -4 v8 z"/><path d="M446 195 l-8 -4 v8 z"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="currentColor" text-anchor="middle">
+    <text x="388" y="86">useEffect</text>
+    <text x="388" y="186">useRef</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11.5" font-style="italic" fill="currentColor" text-anchor="middle">
+    <text x="370" y="268">custom hooks package these crossings, so each one is written and named once</text>
+  </g>
+</svg>
+</Figure>
+
+<Callout kind="build">
+**The escape hatches, correctly**
+
+Add the features that need effects and refs, and resist adding effects that do not.
+
+- Replace the hard-coded array with a fetch, handling loading, error and empty — and cancel in flight requests when the query changes.
+- Focus the first field when the add-job form mounts.
+- Extract `useDebounce` and use it so the search fires one request per pause rather than per keystroke.
+- Extract `useJobs`, then notice what happens when two components call it.
+- Audit every effect you wrote and delete the ones computing a value you could derive during render.
+
+The last item is the one that matters. Expect to delete at least one.
+</Callout>
+
+<Callout kind="note">
+**By the end of this part**
+
+You should know which hatch a problem calls for, how to close it properly, and — most often useful — how to recognise the cases where opening one is the mistake.
+</Callout>

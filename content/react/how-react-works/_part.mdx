@@ -1,0 +1,57 @@
+With Part I you can build things. Shortly after that, React starts behaving in ways the API does not explain.
+
+An input loses focus on every keystroke. A value read straight after setting it is one click behind. A component you never touched renders anyway, and one you expected to render does not. A console log appears twice. None of these are answerable from the documentation for the hook involved, because none of them are about the hook.
+
+They are all consequences of three decisions React makes in order to keep the screen in sync with state without being slow. It works in separate phases rather than updating the DOM as it goes. It keeps its own copy of the tree so it can compare rather than rebuild. And it decides what to skip, pause and prioritise instead of doing everything immediately.
+
+This part is those three decisions. It is placed here, rather than at the front, because the ideas only mean anything once you have written enough components to have been caught by them.
+
+<Figure caption="Each chapter explains a different span of the same pipeline.">
+<svg viewBox="0 0 740 235" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The render pipeline with each chapter of this part mapped onto the phases it explains.">
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="60" y="30" width="120" height="34"/>
+    <rect x="220" y="30" width="120" height="34"/>
+    <rect x="380" y="30" width="120" height="34"/>
+    <rect x="540" y="30" width="120" height="34"/>
+    <path d="M182 47 H216"/><path d="M342 47 H376"/><path d="M502 47 H536"/>
+  </g>
+  <g fill="currentColor">
+    <path d="M218 47 l-8 -4 v8 z"/><path d="M378 47 l-8 -4 v8 z"/><path d="M538 47 l-8 -4 v8 z"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="currentColor" text-anchor="middle">
+    <text x="120" y="52">Trigger</text>
+    <text x="280" y="52">Render</text>
+    <text x="440" y="52">Commit</text>
+    <text x="600" y="52">Effects</text>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2">
+    <path d="M60 84 v8 H660 v-8"/>
+    <path d="M220 132 v8 H500 v-8"/>
+    <path d="M220 180 v8 H340 v-8"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="currentColor" text-anchor="middle">
+    <text x="360" y="112">8 — the four phases, and which one touches the DOM</text>
+    <text x="360" y="160">9 — matching old to new, pausing, and what triggers a re-render</text>
+    <text x="360" y="208">10 — the rules these mechanics impose on the code you write</text>
+  </g>
+</svg>
+</Figure>
+
+<Callout kind="build">
+**Prove it to yourself**
+
+Part II is explanation rather than API, so the exercise is instrumentation. Take the job board from Part I and make its behaviour visible.
+
+- Turn on *Highlight updates* and type in the search box. Note every component that flashes and say why before checking.
+- Add a `console.log` at the top of `JobCard`. Count the logs for one keystroke, then predict the count after wrapping it in `memo` — and explain the result if it does not change.
+- Break it deliberately: define `JobCard` inside `JobList`, then type in a card's input and watch focus go.
+- Put a `useState` inside an `if` and read the error carefully rather than reverting immediately.
+
+The goal is that nothing in this part remains a claim you have only read.
+</Callout>
+
+<Callout kind="note">
+**By the end of this part**
+
+You should be able to predict what React will do rather than remember what it did last time: why a component re-rendered, why state was stale, why an input lost focus, and why the same code behaves differently in development. Everything after this refers back to it.
+</Callout>

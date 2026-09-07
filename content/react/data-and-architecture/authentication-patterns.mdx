@@ -1,0 +1,264 @@
+---
+title: "Authentication patterns"
+summary: "Who the user is, which routes they may see, and where the token lives."
+order: 20
+prerequisites: ["react/state-at-scale/state-beyond-one-component", "react/data-and-architecture/routing-with-react-router"]
+tags: []
+updated: "2026-09-04"
+---
+
+One thing to fix before any of the code: the front end does not enforce anything. Hiding a button, guarding a route and disabling a form are all conveniences for the user. Anyone can open devtools and call the API directly, so every rule that matters is enforced on the server. What follows is about the experience, not the security.
+
+## Three states, not two
+
+The most common auth bug in a client-rendered app is treating "not logged in" and "we do not know yet" as the same thing.
+
+```jsx
+const [user, setUser] = useState(null);
+const [isLoading, setIsLoading] = useState(true);
+
+useEffect(() => {
+  const loadSession = async () => {
+    try {
+      const res = await fetch('/api/me');
+
+      if (res.ok) {
+        setUser(await res.json());
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  loadSession();
+}, []);
+```
+
+<Figure caption="Collapse the first state into 'signed out' and every refresh logs the user out.">
+<svg viewBox="0 0 740 190" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="On load the app is in an unknown state, then resolves to signed in or signed out; guards must wait for the unknown state to resolve.">
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="40" y="70" width="180" height="40"/>
+    <rect x="400" y="26" width="180" height="40"/>
+    <rect x="400" y="112" width="180" height="40"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2">
+    
+<path d="M222 90 V132 H394"/>
+  </g>
+  <g fill="currentColor">
+    <path d="M396 46 l-8 -4 v8 z"/><path d="M396 132 l-8 -4 v8 z"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="currentColor" text-anchor="middle">
+    <text x="130" y="88">unknown</text>
+    <text x="490" y="44">signed in</text>
+    <text x="490" y="130">signed out</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="10.5" font-style="italic" fill="currentColor" text-anchor="middle">
+    <text x="130" y="106">checking the session</text>
+    <text x="600" y="90">guards must wait</text>
+    <text x="600" y="106">for this to resolve</text>
+  </g>
+</svg>
+</Figure>
+
+## Auth context
+
+Auth is the textbook case for Context: needed almost everywhere, and changing only on sign-in and sign-out (see 14).
+
+```jsx
+const AuthContext = createContext(null);
+
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // session check as above
+
+  const login = async (credentials) => {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(credentials),
+    });
+
+    if (!res.ok) {
+      throw new Error('Invalid email or password');
+    }
+
+    setUser(await res.json());
+  };
+
+  const logout = async () => {
+    await fetch('/api/logout', { method: 'POST' });
+    setUser(null);
+    queryClient.clear();   // drop the previous user's cached data
+  };
+
+  const value = useMemo(() => {
+    return { user, isLoading, login, logout };
+  }, [user, isLoading]);
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+
+  if (context === null) {
+    throw new Error('useAuth must be used inside AuthProvider');
+  }
+
+  return context;
+};
+```
+
+Clearing the cache on logout is easy to forget and unpleasant when it bites: the next user to sign in on that browser briefly sees the previous user's data.
+
+## Protecting routes
+
+A guard layout protects everything nested inside it, so the check exists once (see 17).
+
+```jsx
+const RequireAuth = () => {
+  const { user, isLoading } = useAuth();
+  const location = useLocation();
+
+  if (isLoading) {
+    return <FullPageSpinner />;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  return <Outlet />;
+};
+```
+
+```jsx
+const LoginPage = () => {
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from?.pathname ?? '/';
+
+  const onSubmit = async (credentials) => {
+    await login(credentials);
+    navigate(from, { replace: true });
+  };
+};
+```
+
+`replace` matters twice here. On the redirect to login, so back does not return to the protected page. And after login, so back does not return to the login form.
+
+### withAuth
+
+The same guard as a wrapper, for the case where a single component rather than a route group needs protecting. This is a legitimate use of a higher-order component: it decides whether the component renders at all, which a hook inside the component cannot do as cleanly (see 24).
+
+```jsx
+export const withAuth = (Component) => {
+  const Guarded = (props) => {
+    const { user, isLoading } = useAuth();
+
+    if (isLoading) {
+      return <Spinner />;
+    }
+
+    if (!user) {
+      return <Navigate to="/login" replace />;
+    }
+
+    return <Component {...props} user={user} />;
+  };
+
+  Guarded.displayName = `withAuth(${Component.displayName ?? Component.name})`;
+
+  return Guarded;
+};
+
+export default withAuth(AddJobPage);
+```
+
+Setting `displayName` is worth the line: without it, DevTools shows a tree full of anonymous wrappers.
+
+## Roles and permissions
+
+```jsx
+const RequireRole = ({ role }) => {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <FullPageSpinner />;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!user.roles.includes(role)) {
+    return <Navigate to="/forbidden" replace />;
+  }
+
+  return <Outlet />;
+};
+```
+
+Note the distinction: a signed-out user is redirected to log in, a signed-in user without the role is told they cannot. Sending the second to a login page they are already past is a confusing dead end.
+
+## Where the token lives
+
+| Storage | Trade |
+|---|---|
+| httpOnly cookie | Unreadable by JavaScript, so a script injection cannot steal it. Sent automatically, which is what creates the exposure: a request from another site carries the cookie too, so it needs cross-site request forgery (CSRF) protection via SameSite and a token. The default choice. |
+| localStorage | Simple, works across origins, survives refresh. Readable by any script on the page, so one XSS is a stolen session. |
+| In memory | Gone on refresh, which is a real cost. Safest against theft; usually paired with a refresh token in a cookie. |
+
+**Default:** an `httpOnly` cookie issued by your own API, with the front end never touching the token. `localStorage` is common and is a considered risk rather than a mistake — but the reasoning has to be explicit, because the failure mode is a full account takeover rather than a bug.
+
+Either way, the front end should not decode the token to decide what to show. Ask the server who the user is; trusting a client-side decode means trusting data the client controls.
+
+### Expiry
+
+Sessions end mid-use. Handle a 401 centrally rather than in every call site.
+
+```jsx
+const apiFetch = async (url, options) => {
+  const res = await fetch(url, { ...options, credentials: 'include' });
+
+  if (res.status === 401) {
+    // one place to clear state and send the user to log in again
+    onSessionExpired();
+  }
+
+  return res;
+};
+```
+
+Send them to login with the current location in state, so signing back in returns them to what they were doing rather than to the home page.
+
+  
+### What happens when
+
+  
+A user signs out and a colleague signs in on the same browser. The app uses a query cache and clears only `user` on logout. What do they see?
+
+  
+The previous user's cached data — their jobs, their profile — until each query refetches. On a shared machine that is a data leak, not a glitch. Clear the cache on logout, and consider including the user id in query keys so entries cannot be reused across accounts.
+
+## Gotchas
+
+- Guards must handle the unknown state. Checking only !user logs people out on every refresh.
+- Client-side guards are not security. The server enforces; the UI is a convenience.
+- Clear caches on logout, or the next user inherits the last one's data.
+- Use replace on auth redirects, in both directions, or the back button loops.
+- Do not decide permissions by decoding a token client-side. Ask the server.
+- A wrapper component without displayName makes the DevTools tree unreadable.
+
+## Takeaways
+
+- Auth state has three values: unknown, signed in, signed out. The first is the one people forget.
+- Context is the right home for it — needed widely, changes rarely.
+- Guard groups of routes with a layout route; use withAuth for one-off components.
+- Redirect with replace and carry the attempted location so login can return the user to it.
+- httpOnly cookies by default; localStorage only as a considered trade.
+- Handle 401 in one place, and clear cached data on logout.

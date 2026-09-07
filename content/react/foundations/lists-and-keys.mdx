@@ -1,0 +1,145 @@
+---
+title: "Lists and keys"
+summary: "Rendering data, and telling React which item is which."
+order: 6
+prerequisites: []
+tags: []
+updated: "2026-09-04"
+---
+
+There is no loop syntax in JSX. A list is an array of elements, produced with `map`.
+
+```jsx
+<div className="grid">
+  {jobs.map((job) => (
+    <JobCard key={job.id} job={job} />
+  ))}
+</div>
+```
+
+`map` is used rather than `forEach` because JSX needs a value: `map` returns the array of elements, `forEach` returns nothing.
+
+## What a key is for
+
+Between renders React has to work out which new element corresponds to which existing one. Without keys it matches by position: first to first, second to second. With keys it matches by key, wherever the item has moved to.
+
+Matching decides **reuse**. Matched, React keeps the existing component instance along with its state, its DOM node and its scroll position. Unmatched, React destroys the old one and mounts a new one from scratch.
+
+<Figure caption="Index keys make position the identity, so state stays with the slot rather than the item.">
+<svg viewBox="0 0 740 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Deleting the first of three items: with index keys the remaining items shift and their state moves with the position; with id keys React reuses the correct instances.">
+  <g font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="currentColor">
+    <text x="10" y="24">delete the first job</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11.5" font-weight="bold" fill="currentColor" text-anchor="middle">
+    <text x="120" y="56">before</text>
+    <text x="360" y="56">key = index</text>
+    <text x="610" y="56">key = job.id</text>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="30" y="72" width="180" height="30"/>
+    <rect x="30" y="112" width="180" height="30"/>
+    <rect x="30" y="152" width="180" height="30"/>
+    <rect x="270" y="72" width="180" height="30"/>
+    <rect x="270" y="112" width="180" height="30"/>
+    <rect x="520" y="72" width="180" height="30"/>
+    <rect x="520" y="112" width="180" height="30"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" fill="currentColor" text-anchor="middle">
+    <text x="120" y="91">A — expanded</text>
+    <text x="120" y="131">B</text>
+    <text x="120" y="171">C</text>
+    <text x="360" y="91">B — expanded</text>
+    <text x="360" y="131">C</text>
+    <text x="610" y="91">B</text>
+    <text x="610" y="131">C</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" font-style="italic" fill="currentColor" text-anchor="middle">
+    <text x="360" y="212">B moved into slot 0, so it</text>
+    <text x="360" y="228">inherited slot 0's state</text>
+    <text x="610" y="212">B keeps its own state,</text>
+    <text x="610" y="228">A's instance is destroyed</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="currentColor" text-anchor="middle">
+    <text x="370" y="266">the data is right in both. only one has the state on the right row.</text>
+  </g>
+</svg>
+</Figure>
+
+## Choosing a key
+
+| Key | Verdict |
+|---|---|
+| job.id | Correct. Stable, unique, tied to the item |
+| A composite like `${type}-${id}` | Fine when no single field is unique |
+| Array index | Only for lists that never reorder, filter or delete |
+| Math.random() | Never. A new key each render remounts everything, every time |
+
+Keys need to be unique among siblings, not globally. Two separate lists on the same page can both use `1`.
+
+## Key as a deliberate reset
+
+Because a changed key means "this is a different thing", you can use it on purpose to throw away state.
+
+```jsx
+// switching job resets the form's internal state to the new job's values
+<EditJobForm key={job.id} job={job} />
+```
+
+Without the key, moving from one job to another reuses the same form instance, and any state initialised from props keeps the previous job's values. With it, React unmounts and remounts, and the form starts fresh. This is the recommended alternative to an effect that resets state when a prop changes (see 11). The effect version always renders twice: once with the previous job's values still on screen, then again after the effect runs and the setters fire. The key version has no intermediate state to see, because the old instance never renders with the new job at all.
+
+## Extracting the item component
+
+Once the body of the map grows past a few lines, move it into its own component. The list then shows the data flow rather than the markup.
+
+```jsx
+const JobList = ({ jobs }) => {
+  return (
+    <div className="grid">
+      {jobs.map((job) => (
+        <JobCard key={job.id} job={job} />
+      ))}
+    </div>
+  );
+};
+```
+
+Note where `key` goes: on the element the callback returns, at the call site — not inside `JobCard`. The key is information for the parent's reconciliation, and the child never receives it as a prop.
+
+## Filtering and empty states
+
+```jsx
+const visible = jobs.filter((job) => job.type === type);
+
+if (visible.length === 0) {
+  return <EmptyState />;
+}
+```
+
+Filter before mapping, and handle empty explicitly. A list that silently renders nothing looks like a bug to the user.
+
+  
+### What happens when
+
+  
+Three job cards use `key={index}`. Each has a "More" toggle, and the second one is expanded. The first job is deleted. What does the user see?
+
+  
+The third job now appears expanded. Removing the first shifts everything up, so the previously-second job takes index 0 and the third takes index 1 — where the expanded state was stored. The data is correct; the state is on the wrong row. With `key={job.id}`, each card keeps its own state and only the deleted one disappears.
+
+## Gotchas
+
+- Keys prevent remounting, not re-rendering. Children of a re-rendering parent re-render regardless (see 9).
+- key is not passed to the component. Pass the id separately if the child needs it.
+- The key belongs on the outermost element returned by the callback, including on a fragment: `<Fragment key={id}>`.
+- Index keys are fine for static lists and dangerous the moment items can be added, removed or reordered.
+- A random key remounts every item on every render, destroying state and focus and costing far more than the diff it was meant to avoid.
+- Duplicate keys among siblings cause silently wrong reuse as well as a warning.
+
+## Takeaways
+
+- Lists come from map, which returns an array of elements.
+- A key tells React which existing instance a new element corresponds to.
+- Matched means reused with its state; unmatched means destroyed and rebuilt.
+- Use a stable id. Index keys tie state to position rather than to the item.
+- Changing a key on purpose is the clean way to reset a component's state.
+- Keys are unique among siblings, live at the call site, and are never a prop.

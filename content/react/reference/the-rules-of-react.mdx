@@ -1,0 +1,54 @@
+---
+title: "The Rules of React"
+summary: "The whole contract, on one page. Explained in Chapter 10; the official version is at react.dev/reference/rules."
+order: 3
+prerequisites: []
+tags: []
+updated: "2026-09-08"
+---
+
+## Rules of Hooks
+
+1. **Only call hooks at the top level.** Not inside conditions, loops, nested functions, or after an early return. React matches hooks to stored slots by call order, so a skipped call shifts every slot after it.
+2. **Only call hooks from React function components or from other hooks.** Hook state lives on a fiber. A plain function called outside rendering has no fiber to store anything on.
+
+## Rules of React
+
+React's own documentation groups these under two headings: *components and hooks must be pure* (rules 3 to 5) and *React calls components and hooks* (rules 6 and 7).
+
+1. **Components and hooks must be pure.** Same props and state in, same output out, with nothing else changed on the way. React may render a component more than once and discard the result.
+2. **Never mutate props, state, or values returned by hooks.** React detects change by comparing references. A mutated value is the same value, so nothing re-renders — and other holders of it are silently affected.
+3. **Never mutate values after passing them to JSX.** Once a value is handed to React it is React's. Changing it afterwards makes the rendered output disagree with the data it came from.
+4. **React calls your components and hooks. You do not call them yourself.** Write `<JobCard />`, not `JobCard()`. Calling it directly inlines the output and the component gets no fiber, so it has no state, no hooks and no identity.
+5. **Never pass a hook around as a value.** Call hooks directly by name. A hook stored in a variable, passed as a prop or selected at runtime is invisible to the linter and to the compiler, which both need to see a fixed set of calls in a fixed order.
+
+## What counts as a side effect during render
+
+```jsx
+const JobPage = ({ job }) => {
+  job.title = job.title.trim();     // mutating a prop
+  viewCount++;                      // changing something outside
+  document.title = job.title;       // touching the world
+  localStorage.setItem('last', id); // same
+  const key = Math.random();        // different output, same input
+  fetch('/api/track');              // same
+};
+```
+
+All six belong in an effect, an event handler, or a state initializer — places that run when the render is committed and real.
+
+## What is allowed during render
+
+```jsx
+const total = jobs.length;                             // deriving
+const visible = jobs.filter((j) => j.type === type);   // deriving
+
+const draft = { ...job, title: job.title.trim() };     // mutating something
+draft.updatedAt = now;                                 // created in this render
+```
+
+Objects created during the current render have not been shared with anything yet, so changing them is safe. The rule is about values that came from elsewhere.
+
+<Callout kind="note">
+**Why this now matters more.** React Compiler adds memoization automatically by reasoning about data flow, and that reasoning assumes the rules hold. Where it cannot prove a component is safe it skips optimising it; where a violation is invisible to it, the output can be wrong. Install `eslint-plugin-react-hooks` and treat its warnings as errors.
+</Callout>

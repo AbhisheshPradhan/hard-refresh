@@ -1,0 +1,63 @@
+A component that renders correctly is not yet an application. An application has URLs, fetches things that fail, and has to keep working when one part of it breaks.
+
+These chapters are about the layer between your components and the outside world. Where data comes from and who caches it. How a URL maps to what is on screen. What happens while something is loading, and what happens when it never arrives. How the whole thing is arranged on disk so a stranger can find anything in it.
+
+The through-line is that each of these is a boundary. A route boundary decides what renders. A Suspense boundary decides what shows while waiting. An error boundary decides how far a failure spreads. Putting them in the right places is most of what application architecture means in React.
+
+<Figure caption="Four boundaries, each with a chapter.">
+<svg viewBox="0 0 740 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A request flows through route matching, data loading, a suspense boundary and an error boundary before the page renders.">
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="20" y="70" width="140" height="46"/>
+    <rect x="200" y="70" width="140" height="46"/>
+    <rect x="380" y="70" width="140" height="46"/>
+    <rect x="560" y="70" width="160" height="46"/>
+    <path d="M162 93 H196"/><path d="M342 93 H376"/><path d="M522 93 H556"/>
+  </g>
+  <g fill="currentColor">
+    <path d="M198 93 l-8 -4 v8 z"/><path d="M378 93 l-8 -4 v8 z"/><path d="M558 93 l-8 -4 v8 z"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11.5" font-weight="bold" fill="currentColor" text-anchor="middle">
+    <text x="90" y="92">the URL</text>
+    <text x="270" y="92">route match</text>
+    <text x="450" y="92">data</text>
+    <text x="640" y="92">the page</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" fill="currentColor" text-anchor="middle">
+    <text x="90" y="108">/jobs/3</text>
+    <text x="270" y="108">layout and page</text>
+    <text x="450" y="108">loader or cache</text>
+    <text x="640" y="108">rendered</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" font-style="italic" fill="currentColor" text-anchor="middle">
+    <text x="270" y="150">17</text>
+    <text x="450" y="150">16</text>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="5 4">
+    <rect x="380" y="168" width="340" height="34"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" fill="currentColor" text-anchor="middle">
+    <text x="550" y="189">while waiting: 18 · when it fails: 19</text>
+  </g>
+</svg>
+</Figure>
+
+<Callout kind="build">
+**An application rather than a page**
+
+This is the largest of the six and the one closest to a real codebase.
+
+- Routes for the list, a job detail page, add and edit, a login page, and a not-found route, with a shared layout.
+- Filters and pagination in the URL, so a filtered list can be sent to someone.
+- Replace hand-rolled fetching with a query library: keys, invalidation after mutations, and one optimistic update.
+- A guard layout for the protected routes that handles the unknown-session state correctly on refresh.
+- An error boundary per route and one around a widget, each with a retry.
+- Restructure into feature folders and check that deleting one feature does not break the others.
+
+Deploy it somewhere static and refresh on a nested URL. If it 404s, chapter 17 told you why.
+</Callout>
+
+<Callout kind="note">
+**By the end of this part**
+
+You should be able to lay out an application: routes and layouts, data loaded without race conditions or duplicate requests, deliberate loading and error boundaries, protected pages, and a folder structure that still makes sense at fifty components.
+</Callout>

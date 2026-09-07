@@ -1,0 +1,402 @@
+---
+title: "Reconciliation, Fiber and re-renders"
+summary: "How React decides what changed, and why it can stop halfway through deciding."
+order: 9
+prerequisites: ["react/foundations/lists-and-keys"]
+tags: []
+updated: "2026-09-04"
+---
+
+## The problem Fiber was built to solve
+
+A browser tab has one main thread. It runs your JavaScript, calculates layout and paints the screen, and it can only do one of those at a time. While JavaScript runs, nothing is painted and no input is handled.
+
+React's original reconciler walked the component tree with plain recursion: render the root, render its children, down to the leaves, all in one call stack. A call stack cannot be paused. Start rendering a large tree and the thread is occupied until it finishes. The user types, and the input stays empty until the render completes.
+
+React 16 replaced that with **Fiber**. The word means two things: the new reconciler, and the objects it works with. Instead of recursion, React holds the tree as a linked list of nodes with pointers to parent, first child and next sibling, and walks it in a loop, one node at a time. Between any two nodes it can stop, hand the thread back to the browser, and resume later.
+
+That is the whole reason Fiber exists. No browser API lets you pause a running function. The ability to pause comes from the data structure, not from the platform. And once work can be paused, some work can be treated as more urgent than other work.
+
+## Two trees
+
+React keeps two separate structures, and they are easy to confuse.
+
+The **virtual DOM**, also called the element tree, is what your components return. Plain objects, created fresh on every render, describing what the UI should look like. They are disposable.
+
+The **fiber tree** is React's workspace. One fiber per component instance, created on mount and kept for as long as the component is on screen. State and hooks live here.
+
+```jsx
+// You write this
+<JobListing job={job} />
+
+// which produces an element: new object, every render, thrown away
+{ type: JobListing, key: '3', props: { job } }
+
+// and is matched against a fiber: created once, kept, updated
+{
+  type: JobListing,
+  key: '3',
+  memoizedProps: { job },   // props from the last committed render
+  memoizedState: { … },     // the useState values and hooks
+  child, sibling, return,   // the linked list React walks
+  alternate,                // the other copy of this same fiber
+  flags                     // what to do at commit: place, update, delete
+}
+```
+
+<Figure caption="A description you throw away, and a workspace you keep.">
+<svg viewBox="0 0 740 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The element tree is recreated every render and discarded; the fiber tree is created once and kept, holding state and the pointers React walks.">
+  <g font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="bold" fill="currentColor" text-anchor="middle">
+    <text x="180" y="24">Virtual DOM — the element tree</text>
+    <text x="560" y="24">Fiber tree</text>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="110" y="46" width="140" height="32"/>
+    <rect x="40" y="116" width="120" height="32"/>
+    <rect x="200" y="116" width="120" height="32"/>
+    
+<path d="M180 78 V96 H260 V114"/>
+    <rect x="490" y="46" width="140" height="32"/>
+    <rect x="420" y="116" width="120" height="32"/>
+    <rect x="580" y="116" width="120" height="32"/>
+    <path d="M560 78 V96 H480 V114"/>
+    <path d="M542 132 H576"/>
+  </g>
+  <g fill="currentColor">
+    <path d="M100 116 l-4 -8 h8 z"/><path d="M260 116 l-4 -8 h8 z"/>
+    <path d="M480 116 l-4 -8 h8 z"/><path d="M578 132 l-8 -4 v8 z"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" fill="currentColor" text-anchor="middle">
+    <text x="180" y="66">JobListings</text>
+    <text x="100" y="136">JobListing</text>
+    <text x="260" y="136">JobListing</text>
+    <text x="560" y="66">JobListings</text>
+    <text x="480" y="136">JobListing</text>
+    <text x="640" y="136">JobListing</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="10" font-style="italic" fill="currentColor">
+    <text x="470" y="112" text-anchor="end">child</text>
+    <text x="546" y="126">sibling</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="currentColor" text-anchor="middle">
+    <text x="180" y="182">recreated on every render</text>
+    <text x="180" y="198">and thrown away after</text>
+    <text x="560" y="182">created once and kept; holds</text>
+    <text x="560" y="198">state, hooks and effects</text>
+  </g>
+  <g stroke="currentColor" stroke-width="1" stroke-dasharray="4 4">
+    <path d="M370 14 V214"/>
+  </g>
+</svg>
+</Figure>
+
+One correction to a common description: React does not build a new virtual DOM and then compare it against the old one. As it renders, it compares the new elements against the existing fibers. This is also why state survives when elements do not. State was never in the elements; it lives on the fiber.
+
+### Why the elements are a tree
+
+An element is one object. It becomes a tree because a parent's `children` prop holds more elements:
+
+```jsx
+<div className="card">
+  <h3>{job.title}</h3>
+</div>
+
+{
+  type: 'div',
+  props: {
+    className: 'card',
+    children: { type: 'h3', props: { children: 'React Developer' } },
+  },
+}
+```
+
+So a component's return value is one node, and the tree is what you get once React has called every component down the branch and expanded each one's output. Only the parts that re-rendered produce new elements; a subtree that bails out keeps its existing fibers and no elements are created for it.
+
+The whole pipeline in one line: **elements are matched against fibers, and the fibers drive the DOM.** The elements are consumed during that matching and thrown away — nothing flows back into them, and the commit never reads them. React's own documentation now mostly avoids the phrase "virtual DOM", because it suggests a persistent mirror of the page being kept in sync. There is no such thing. The disposable description is the elements; the durable workspace is the fiber tree.
+
+## What it is not compared against
+
+A common description says React compares the virtual DOM with the real DOM to work out what changed. It does not, and the difference matters.
+
+React compares the new element tree against the fibers it already holds — its own record of what it last committed. The real DOM is written to during a commit, never read from to decide what to write. That is the point of the technique: reading layout information back out of the DOM is one of the slowest things a page can do, and doing it per element on every update would cost more than it saved.
+
+The consequence is that React's picture of the page is only as good as its own bookkeeping. If something outside React changes a node it manages — a jQuery plugin, a browser extension, a script writing directly to the page — React does not notice, because it never looks. The next update is applied against what React believes is there, and the node quietly disagrees with the tree that produced it.
+
+## Current and work-in-progress
+
+There are actually two fiber trees. **Current** is what is on screen. When a render starts, React builds a **work-in-progress** tree beside it, reusing nodes wherever nothing changed. The `alternate` pointer links each fiber to its counterpart.
+
+If the render is discarded, the work-in-progress tree is thrown away and the screen was never touched. If it commits, React flips a single pointer and the work-in-progress tree becomes current.
+
+The two are roles rather than separate objects that come and go. The tree you just stopped showing becomes the scratch space for the next render, so the pair alternates: build into one, flip, build into the other, flip back. React also reuses individual fibers wherever nothing changed, so a typical render writes to the path from the root down to what actually differs and shares the rest. Two trees for the life of the app, mostly overlapping — not one tree per update. The technique has a name outside React: double buffering.
+
+<Figure caption="Two trees swapping roles on each commit. Discarding a render costs nothing on screen.">
+<svg viewBox="0 0 740 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Two fiber trees linked by alternate pointers; on commit the root pointer flips so the work-in-progress tree becomes current.">
+  <g font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="bold" fill="currentColor" text-anchor="middle">
+    <text x="170" y="24">current — on screen</text>
+    <text x="570" y="24">work in progress — being rendered</text>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="105" y="42" width="130" height="30"/>
+    <rect x="105" y="102" width="130" height="30"/>
+    <rect x="105" y="162" width="130" height="30"/>
+    <rect x="505" y="42" width="130" height="30"/>
+    <rect x="505" y="102" width="130" height="30"/>
+    <rect x="505" y="162" width="130" height="30"/>
+    
+<path d="M170 132 V160"/>
+    <path d="M570 72 V100"/><path d="M570 132 V160"/>
+  </g>
+  <g stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 4" fill="none">
+    <path d="M237 57 H503"/><path d="M237 117 H503"/><path d="M237 177 H503"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" fill="currentColor" text-anchor="middle">
+    <text x="170" y="62">App</text>
+    <text x="170" y="122">JobListings</text>
+    <text x="170" y="182">JobListing</text>
+    <text x="570" y="62">App</text>
+    <text x="570" y="122">JobListings</text>
+    <text x="570" y="182">JobListing</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="10" font-style="italic" fill="currentColor" text-anchor="middle">
+    <text x="370" y="52">alternate</text>
+    <text x="370" y="112">alternate</text>
+    <text x="370" y="172">alternate</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="currentColor" text-anchor="middle">
+    <text x="370" y="222">on commit the pointer flips: the two trees swap roles</text>
+  </g>
+</svg>
+</Figure>
+
+## What actually causes a re-render
+
+A re-render means React calls your component function again. Three things cause it:
+
+- Its own state changed.
+- A context it consumes changed (see 14).
+- Its parent re-rendered.
+
+That third one is the whole story, and the reason so much re-render advice is wrong. "The component re-rendered because its props changed" is backwards. Props changing is a *consequence* of the parent rendering, not a cause of the child rendering. A child whose props are byte-for-byte identical still re-renders when its parent does.
+
+React can be told to skip a subtree. `memo` compares the new props with the previous ones, and if they are all equal React **bails out**: it does not call the function, and it reuses the existing fibers for that whole subtree.
+
+React also bails out on its own, without `memo`. When it reaches a fiber whose props are referentially equal to last time, with no pending state update and no context it consumes having changed, there is nothing that could produce a different result — so it reuses the existing fibers for the entire subtree and moves on. This is why the `children` pattern works (see 14): the element in that slot was created by a component that did not re-render, so the reference is identical and the whole subtree is skipped with no memoization written anywhere.
+
+The condition is narrow — referential equality, not shallow comparison — which is why an inline object or arrow prop defeats it, and why `memo` exists for the cases where the props are newly created but equivalent.
+
+<Figure caption="The cascade runs downward from the component whose state changed, not upward and not sideways.">
+<svg viewBox="0 0 740 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A state change in JobListings re-renders it and its children; a memoized child with unchanged props is skipped along with its subtree.">
+  <g font-family="Helvetica, Arial, sans-serif" font-size="10.5" fill="currentColor">
+    <text x="10" y="20">thick border = re-renders</text>
+    <text x="10" y="34">dashed = skipped</text>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2">
+    
+<path d="M370 56 V76 H520 V94"/>
+    <path d="M520 126 V151 H370 V174"/>
+    <path d="M520 151 H650 V174"/>
+    <path d="M510 151 V174"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2">
+    <rect x="300" y="26" width="140" height="30"/>
+    <rect x="90" y="96" width="150" height="30"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="3">
+    <rect x="430" y="96" width="180" height="30"/>
+    <rect x="310" y="176" width="120" height="30"/>
+    <rect x="450" y="176" width="120" height="30"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="5 4">
+    <rect x="590" y="176" width="120" height="30"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" fill="currentColor" text-anchor="middle">
+    <text x="370" y="46">App</text>
+    <text x="165" y="116">Navbar</text>
+    <text x="520" y="116">JobListings</text>
+    <text x="370" y="196">JobListing</text>
+    <text x="510" y="196">JobListing</text>
+    <text x="650" y="196">JobListing (memo)</text>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2">
+    <path d="M70 111 H84"/>
+    <path d="M634 111 H620"/>
+  </g>
+  <g fill="currentColor">
+    <path d="M86 111 l-8 -4 v8 z"/>
+    <path d="M618 111 l8 -4 v8 z"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" font-style="italic" fill="currentColor">
+    <text x="10" y="115">not called</text>
+    <text x="640" y="115">state changes here</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" font-style="italic" fill="currentColor" text-anchor="middle">
+    <text x="650" y="226">same props: skipped,</text>
+    <text x="650" y="240">subtree reused</text>
+  </g>
+</svg>
+</Figure>
+
+## A contrast: signals
+
+React's model is coarse-grained. State changes, the component function runs again, React compares the result and updates what differs. The unit of work is a component.
+
+Every other major framework has moved to **signals** — Vue's `ref`, Solid's signals, Svelte 5's runes, Angular's signals. A signal is a value that records where it was read, so a change updates exactly those places and nothing else. The unit of work is an expression.
+
+```jsx
+// roughly, in a signals framework
+const count = signal(0);
+
+<p>{count()}</p>    // reading it here creates a subscription
+
+count.set(1);        // only that text node updates; no component re-runs
+```
+
+React has deliberately not adopted them. Its position is that the compiler solves the same problem from the other end: if memoization is inserted automatically at build time, wasted re-renders largely disappear without changing the programming model or the guarantee that a component is a plain function of its props and state (see 22).
+
+The trade is real in both directions. Signals give precise updates and no dependency arrays, at the cost of values that are not plain data — you read them through a function, and passing one around is not the same as passing its value. React keeps a simpler mental model and pays for it with re-renders it then has to skip.
+
+A native signals proposal is working its way through the JavaScript standards process, which may change the picture. For now, knowing the distinction is worth more than the API: it is the clearest way to say what React actually does.
+
+## Matching old to new
+
+Comparing two arbitrary trees for the minimum set of changes is roughly O(n³). For a thousand nodes that is a billion operations, which is not a real option. React gets to O(n) with two assumptions:
+
+**Different type at the same position means a different thing.** React does not attempt to match them. It unmounts the old subtree, destroying its state, and mounts a new one.
+
+```jsx
+// Toggling this swaps div for section at the same position.
+// Everything inside unmounts and remounts: state lost, effects re-run.
+{isWide
+  ? <div className="wide"><JobFilters /></div>
+  : <section className="narrow"><JobFilters /></section>}
+```
+
+**Keys identify siblings across renders.** Within a list, React matches by key rather than by position, which is what lets it reuse the right fiber when the list is reordered or an item is removed (see 6).
+
+Note precisely what a key does. It does not stop children re-rendering — children of a re-rendering parent re-render regardless. It decides whether React *reuses* an existing fiber or throws it away and mounts a fresh one. Keys prevent remounting, and remounting is what destroys state.
+
+## Activity: the argument made visible
+
+Everything above is invisible by design. `<Activity>`, stable since React 19.2, is the one API that exposes it directly.
+
+```jsx
+<Activity mode={tab === 'saved' ? 'visible' : 'hidden'}>
+  <SavedJobs />
+</Activity>
+```
+
+Hidden content is not unmounted. Its fibers stay, so its state stays — scroll position, form input, which rows are expanded — and its DOM nodes remain, merely hidden. What React does clean up is its Effects, so a hidden panel is not still polling or holding a subscription, and any updates it does receive are scheduled at a lower priority than anything the user can see. Switch it back to visible and React restores the state and re-creates the Effects.
+
+Compare that with the ordinary alternative. `{tab === 'saved' && <SavedJobs />}` unmounts the component, which discards the fiber and everything on it, and the user comes back to a reset panel (see 6). The difference between the two is exactly the difference between an element tree and a fiber tree: one describes what should be there, the other holds what actually is, including work already done.
+
+## Batching
+
+State setters schedule work rather than performing it. Several setters in one handler produce one render, not one each.
+
+```jsx
+const handleSubmit = () => {
+  setLoading(true);
+  setError(null);
+  setSubmitted(true);
+  // one render, not three
+};
+```
+
+This holds everywhere: event handlers, promises, timeouts, native listeners. It is called automatic batching, and it arrived in React 18, so code written before that occasionally relies on renders happening between two setters. `flushSync` forces an immediate synchronous render when you genuinely need the DOM updated before the next line, which is rare and costly.
+
+## How React shares the thread
+
+Pausable work is only useful if something decides when to pause. React yields roughly every five milliseconds, giving the browser a chance to handle input and paint, then picks up where it left off.
+
+It is widely repeated that React does this with `requestIdleCallback` and `requestAnimationFrame`. Early Fiber prototypes did, which is where the claim comes from, but React shipped its own scheduler instead. `requestIdleCallback` fires too infrequently and too late under load — React wants to run soon, just interruptibly, not whenever the browser happens to be idle — and it went unsupported in Safari for years. `requestAnimationFrame` is tied to paint and does not fire in background tabs, so it is wrong for work that is not visual. React ships its own scheduler package instead, and it schedules each slice of work with `MessageChannel`: it creates a channel, posts a message to one port, and receives it on the other. That gives it a task the browser will run promptly, before the next paint, with no minimum delay. `setTimeout` is the fallback where `MessageChannel` is unavailable, and it is second choice because nested timeouts get clamped to a few milliseconds.
+
+## Priority
+
+Every update carries a priority. Roughly, from most urgent to least:
+
+| Priority | Examples |
+|---|---|
+| Discrete input | click, keypress, submit |
+| Continuous input | scroll, drag, pointer move |
+| Default | data arriving, most state updates |
+| Transition | updates you marked as non-urgent |
+| Idle | work that can wait indefinitely |
+
+Everything is urgent unless you say otherwise. Two APIs let you say otherwise. In the job board, filtering five thousand jobs while the user types is the standard case: the input must stay responsive, the filtered list can lag a frame behind.
+
+```jsx
+const [query, setQuery] = useState('');
+const deferredQuery = useDeferredValue(query);
+
+// urgent: the input updates on every keystroke
+<input value={query} onChange={(e) => setQuery(e.target.value)} />
+
+// non-urgent: this render can be interrupted by the next keystroke
+<JobResults query={deferredQuery} />
+```
+
+`useTransition` does the same job from the other end, marking the update rather than the value, and gives you `isPending` to show that results are catching up (see 18).
+
+<Figure caption="The keystroke does not wait for the list. The list waits for the keystroke.">
+<svg viewBox="0 0 740 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A long low-priority render is paused when the user types; the urgent update renders and commits, then the low-priority work resumes.">
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11.5" font-weight="bold" fill="currentColor">
+    <text x="10" y="70">urgent</text>
+    <text x="10" y="130">transition</text>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="320" y="50" width="120" height="28"/>
+    <rect x="120" y="110" width="200" height="28"/>
+    <rect x="440" y="110" width="180" height="28"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" fill="currentColor" text-anchor="middle">
+    <text x="380" y="69">render + commit</text>
+    <text x="220" y="129">filtering 5,000 jobs</text>
+    <text x="530" y="129">resumes, then commits</text>
+  </g>
+  <g stroke="currentColor" stroke-width="1" stroke-dasharray="4 4">
+    
+<path d="M440 44 V150"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <path d="M320 20 V44"/>
+    <path d="M20 170 H720"/>
+  </g>
+  <g fill="currentColor">
+    <path d="M320 46 l-4 -8 h8 z"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" font-style="italic" fill="currentColor">
+    <text x="326" y="20">user types</text>
+    <text x="120" y="164">paused here</text>
+    <text x="660" y="188">time</text>
+  </g>
+</svg>
+</Figure>
+
+  
+### What happens when
+
+  A parent re-renders. One child is wrapped in `memo` and receives `job={job}` where `job` is unchanged, plus `onSelect={() => select(job.id)}` written inline. Does the child re-render?
+
+  
+Yes. `memo` compares props shallowly, and the inline arrow function is a brand new function on every parent render, so the comparison fails every time. The memo does nothing except add a comparison you pay for. This is the most common way memoization is defeated (see 22).
+
+## Gotchas
+
+- React never reads the DOM to diff. It compares the new element tree against its own fibers, so a change made outside React goes unnoticed.
+- Defining a component inside another component remounts it on every render. The inner function is a new type each time, so React unmounts the old subtree and mounts a new one. Inputs lose focus, state resets, effects re-run. Define components at module level.
+- Re-render does not mean DOM update. React compares first and often writes nothing (see 8).
+- memo compares shallowly. Inline objects, arrays and functions as props defeat it.
+- A transition does not make rendering faster. The same work happens; it just stops blocking more urgent work.
+- Changing an element's type at the same position destroys state, even when the children look identical.
+- Context consumers re-render when the context value changes, regardless of memo on components in between (see 14).
+
+## Takeaways
+
+- Fiber exists so rendering can be paused. The pausing comes from the linked-list structure, not from a browser API.
+- Elements are matched against fibers, and the fibers drive the DOM — the elements are discarded in between.
+- The virtual DOM is a disposable description; the fiber tree is a kept workspace holding state.
+- React keeps two fiber trees that swap roles on commit, sharing every fiber that did not change.
+- A component re-renders when its own state changes, its context changes, or its parent re-renders. Props changing is a consequence, not a cause.
+- Different type at the same position remounts; keys decide reuse. Keys prevent remounting, not re-rendering.
+- Updates are batched and prioritised. Everything is urgent unless you mark it otherwise.

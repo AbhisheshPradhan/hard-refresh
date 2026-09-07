@@ -1,0 +1,283 @@
+---
+title: "The render cycle"
+summary: "What actually happens between calling a setter and the screen changing."
+order: 8
+prerequisites: ["react/foundations/state-with-usestate", "react/foundations/events-and-conditional-rendering"]
+tags: []
+updated: "2026-09-04"
+---
+
+## Four phases
+
+Calling a state setter does not change the DOM. It starts a sequence of four phases, and almost every confusing React behaviour comes from mistaking one phase for another.
+
+1. Trigger. Something schedules an update: a state setter, a parent re-rendering, or the initial mount.
+2. Render. React calls your component function and collects what it returns. Nothing touches the DOM. This work can be paused, restarted, or thrown away.
+3. Commit. React applies the differences to the real DOM. This phase runs to completion and cannot be interrupted.
+4. Effects. After the browser paints, React runs your effects.
+
+<Figure caption="Render produces a description. Commit applies it. Only commit touches the DOM.">
+<svg viewBox="0 0 740 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The four phases of the render cycle: trigger, render, commit and effects, with the browser paint between commit and effects.">
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="10" y="62" width="150" height="58"/>
+    <rect x="200" y="62" width="150" height="58"/>
+    <rect x="390" y="62" width="150" height="58"/>
+    <rect x="580" y="62" width="150" height="58"/>
+    
+<path d="M352 91 H386"/><path d="M542 91 H576"/>
+  </g>
+  <g fill="currentColor">
+    <path d="M198 91 l-8 -4 v8 z"/><path d="M388 91 l-8 -4 v8 z"/><path d="M578 91 l-8 -4 v8 z"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="bold" fill="currentColor" text-anchor="middle">
+    <text x="85" y="97">Trigger</text>
+    <text x="275" y="97">Render</text>
+    <text x="465" y="97">Commit</text>
+    <text x="655" y="97">Effects</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="currentColor" text-anchor="middle">
+    <text x="85" y="143">setState, parent</text>
+    <text x="85" y="159">re-render, mount</text>
+    <text x="275" y="143">call the component,</text>
+    <text x="275" y="159">collect what it returns</text>
+    <text x="465" y="143">write the changes</text>
+    <text x="465" y="159">to the real DOM</text>
+    <text x="655" y="143">run useEffect</text>
+    <text x="655" y="159">callbacks</text>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2">
+    <path d="M200 48 v-10 h150 v10"/>
+    <path d="M390 48 v-10 h150 v10"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="currentColor" text-anchor="middle">
+    <text x="275" y="28">can be paused or discarded</text>
+    <text x="465" y="28">runs to completion</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11.5" font-style="italic" fill="currentColor" text-anchor="middle">
+    <text x="275" y="196">no DOM access</text>
+    <text x="465" y="196">DOM is written</text>
+    <text x="560" y="236">browser paints here</text>
+  </g>
+  <g stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 4">
+    <path d="M560 18 V216"/>
+  </g>
+</svg>
+</Figure>
+
+## Render asks, commit answers
+
+When React renders your component, it is asking a question: given this state and these props, what should the UI look like? Your job is to answer it. Your job is not to make it happen.
+
+JobListing.jsx
+
+```jsx
+const JobListing = ({ job }) => {
+  const [showFull, setShowFull] = useState(false);
+
+  const description = showFull
+    ? job.description
+    : job.description.substring(0, 90) + '...';
+
+  return (
+    <div className="bg-white rounded-xl shadow-md">
+      <h3>{job.title}</h3>
+      <p>{description}</p>
+      <button onClick={() => setShowFull((prev) => !prev)}>
+        {showFull ? 'Less' : 'More'}
+      </button>
+    </div>
+  );
+};
+```
+
+Click *More* and all four phases run. React re-renders `JobListing`, gets back a description with the full text, works out that one paragraph's text changed, writes that one change to the DOM, and paints. The `<h3>` is untouched because nothing about it changed.
+
+## Render must be pure
+
+Because render can run more than once and be thrown away, it has to be safe to run repeatedly. Same props and state in, same result out, and nothing else changed on the way.
+
+Three things that break this rule, all of which look reasonable:
+
+```jsx
+const JobListing = ({ job }) => {
+  // 1. mutating a prop
+  job.title = job.title.toUpperCase();
+
+  // 2. writing to something outside the component
+  viewCount = viewCount + 1;
+
+  // 3. doing work that should be an effect
+  document.title = job.title;
+
+  return <h3>{job.title}</h3>;
+};
+```
+
+Each is a side effect: an observable change to the world that happens while React is only asking a question. Run the render twice and the title is uppercased twice, the count is wrong, and the document title is set during work React may discard.
+
+The fixes follow from the phases. Derive values instead of mutating; put genuine side effects in an effect, which runs in phase four when the render is committed and real.
+
+```jsx
+const JobListing = ({ job }) => {
+  const title = job.title.toUpperCase();   // derive, don't mutate
+
+  useEffect(() => {
+    document.title = title;            // side effect, after commit
+  }, [title]);
+
+  return <h3>{title}</h3>;
+};
+```
+
+## The same phases, per component
+
+The phases above describe one pass through the tree. A single component instance meets those phases repeatedly, and what happens in each depends on whether it is arriving, changing or leaving.
+
+<Figure caption="Mounting is not a phase of its own — it is what a commit does for an instance that is new.">
+<svg viewBox="0 0 740 290" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A grid of the three phases against mount, update and unmount, showing what happens to one component instance in each.">
+  <g font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="currentColor" text-anchor="middle">
+    <text x="225" y="22">MOUNT</text>
+    <text x="430" y="22">UPDATE</text>
+    <text x="635" y="22">UNMOUNT</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" font-weight="bold" fill="currentColor" text-anchor="end">
+    <text x="118" y="77">render</text>
+    <text x="118" y="157">commit</text>
+    <text x="118" y="229">after paint</text>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="130" y="36" width="190" height="80"/>
+    <rect x="335" y="36" width="190" height="80"/>
+    <rect x="540" y="36" width="190" height="80"/>
+    <rect x="130" y="126" width="190" height="56"/>
+    <rect x="335" y="126" width="190" height="56"/>
+    <rect x="540" y="126" width="190" height="56"/>
+    <rect x="130" y="192" width="190" height="80"/>
+    <rect x="335" y="192" width="190" height="80"/>
+    <rect x="540" y="192" width="190" height="80"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="10.5" fill="currentColor" text-anchor="middle">
+    <text x="225" y="66">function called</text>
+    <text x="225" y="84">a fiber is created</text>
+    <text x="225" y="102">for this instance</text>
+    <text x="430" y="66">function called again</text>
+    <text x="430" y="84">the same fiber is reused,</text>
+    <text x="430" y="102">so state survives</text>
+    <text x="635" y="75">not called</text>
+    <text x="635" y="93">at all</text>
+    <text x="225" y="159">DOM nodes inserted</text>
+    <text x="430" y="150">DOM patched only</text>
+    <text x="430" y="168">where output differs</text>
+    <text x="635" y="159">DOM nodes removed</text>
+    <text x="225" y="222">effect runs</text>
+    <text x="225" y="240">for the first time</text>
+    <text x="430" y="222">cleanup, then effect —</text>
+    <text x="430" y="240">only if a dependency</text>
+    <text x="430" y="258">changed</text>
+    <text x="635" y="231">cleanup runs</text>
+  </g>
+</svg>
+</Figure>
+
+Three things fall out of the grid. State survives an update because the fiber is reused, and is lost on unmount because the fiber is discarded (see 9). Nothing in the middle row happens for a component whose output is unchanged, which is why a re-render need not touch the DOM at all. And every effect in the bottom row runs after the paint above it, which is why an effect can never prevent a flicker — the user has already seen the frame.
+
+## Why you cannot read the DOM during render
+
+During render, the DOM still shows the *previous* screen. The elements your component describes do not exist yet. So measuring during render gives you an answer from the past, or nothing at all.
+
+```jsx
+const JobDescription = ({ text }) => {
+  const ref = useRef(null);
+
+  // null on first render; stale on every render after
+  const height = ref.current?.offsetHeight;
+
+  return <p ref={ref}>{text}</p>;
+};
+```
+
+Measuring belongs after commit, when the node exists (see 12 for refs, 11 for the effect that reads them).
+
+  
+### What happens when
+
+  
+You call `setShowFull(true)` inside a click handler, then read the DOM on the very next line to check the paragraph got longer. What do you see?
+
+  
+The old text. The setter schedules an update; it does not render synchronously. By the time your next line runs, phases two and three have not happened yet. This is the same reason reading the state variable straight after setting it gives you the old value (see 4).
+
+## Where React ends and the DOM begins
+
+React is split in two, and the split explains several things that otherwise look arbitrary.
+
+The `react` package is the **public API**: `createElement`, context, the hook functions you import. It contains almost no machinery — `useState` there is a few lines that forward the call to whichever dispatcher is currently installed.
+
+The **reconciler** — the part that knows about fibers, state, hooks and what changed — is a separate package, `react-reconciler`, and it ships bundled inside each renderer rather than standing alone. So the fiber hook implementations that make `useState` actually work live in `react-dom + reconciler`, not in `react`. A **renderer** is that reconciler plus a set of host operations: `react-dom` creates and patches browser nodes, `react-native + reconciler` creates native views.
+
+The practical shape is still one reconciler and several renderers. It is just that the reconciler travels with the renderer rather than living in the package you import from.
+
+<Figure caption="One shared API, one reconciler, several renderers — which is why React Native reuses everything but the host operations.">
+<svg viewBox="0 0 740 210" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The react package is the shared API; react-dom and react-native each bundle the reconciler and apply its output to the browser DOM or to native views.">
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="245" y="12" width="250" height="52"/>
+    <rect x="110" y="102" width="180" height="46"/>
+    <rect x="450" y="102" width="180" height="46"/>
+    <rect x="110" y="168" width="180" height="34"/>
+    <rect x="450" y="168" width="180" height="34"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    
+<path d="M410 64 V84 H540 V98"/>
+    <path d="M200 148 V164"/>
+    <path d="M540 148 V164"/>
+  </g>
+  <g fill="currentColor">
+    <path d="M200 100 l-4 -8 h8 z"/><path d="M540 100 l-4 -8 h8 z"/>
+    <path d="M200 166 l-4 -8 h8 z"/><path d="M540 166 l-4 -8 h8 z"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="bold" fill="currentColor" text-anchor="middle">
+    <text x="370" y="35">react</text>
+    <text x="200" y="130">react-dom</text>
+    <text x="540" y="130">react-native</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="currentColor" text-anchor="middle">
+    <text x="370" y="53">createElement, context, hook signatures</text>
+    <text x="200" y="189">Browser DOM</text>
+    <text x="540" y="189">iOS and Android views</text>
+  </g>
+</svg>
+</Figure>
+
+main.jsx
+
+```jsx
+import { StrictMode } from 'react';           // the reconciler
+import { createRoot } from 'react-dom/client'; // the renderer
+
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <App />
+  </StrictMode>
+);
+```
+
+The same split explains events. React does not attach a listener to every button. `react-dom` attaches listeners at the root container and works out which component an event belongs to, which is why `e.stopPropagation()` behaves in terms of your component tree rather than the DOM tree (see 5). Where that distinction really bites is portals, whose DOM node sits elsewhere entirely while events still travel the React tree (see 25).
+
+The root container, rather than `document`, is where those listeners live — a change made in React 17. Attaching at `document` meant two React versions on one page fought over the same listeners, so incremental upgrades and multiple independent roots on a single page were impractical. Moving to the container made both routine, which is why you will see older articles describing delegation at the document level.
+
+## Gotchas
+
+- A render can happen without a commit. If nothing changed, or the render was interrupted, React discards the work. Never assume rendering means the screen updated.
+- In development, StrictMode renders twice. Two console.log lines from one click is not a bug. It is React checking that the component renders purely (see 10).
+- State setters do not render immediately. They schedule. Several setters in one handler produce one render, not several (see 9 on batching).
+- Effects usually run after paint. If an effect measures a node and repositions it, the user can see the first position briefly. Updates from discrete input events are the exception (see 11). That is the case useLayoutEffect exists for (see 11).
+- "Re-render" does not mean "DOM update". React re-runs your function and compares; the DOM is only touched where something actually differs.
+
+## Takeaways
+
+- Trigger, render, commit, effects. Different phases, different rules.
+- Render describes; commit applies. Only commit touches the DOM.
+- Render can be paused or discarded, so it must be pure. Commit cannot be interrupted.
+- The DOM during render is the previous screen. Measure after commit.
+- react is the reconciler, react-dom is the renderer, and events are delegated at the root.

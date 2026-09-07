@@ -1,0 +1,117 @@
+---
+title: "Beyond the SPA"
+summary: "Enough to follow the conversation and read the code. Not a Next.js tutorial."
+order: 8
+prerequisites: []
+tags: []
+updated: "2026-09-08"
+---
+
+Everything in this book assumes a single-page app: one HTML file, a JavaScript bundle, and React rendering in the browser. There are two other shapes, and one significant change to how components work. This page covers what they are; building with them properly means learning a framework, which is a separate study.
+
+## Server-side rendering and hydration
+
+The server runs the components and sends real HTML, so the user sees content before the JavaScript arrives. React then attaches to that existing markup in the browser — **hydration** — wiring up event handlers and taking over.
+
+|   | SPA | SSR | Static generation |
+|---|---|---|---|
+| HTML made | In the browser | Per request | At build time |
+| First paint | After the bundle loads | Immediately | Immediately |
+| Crawlers see | An empty shell | Full content | Full content |
+| Needs | Any static host | A running server | Any static host |
+
+The error you will meet is a **hydration mismatch**: the HTML the server produced differs from what the client renders first. Common causes are `Date.now()` or `Math.random()` during render, reading `window` or `localStorage`, and locale-dependent formatting. All of them are purity violations (see 10) that a client-only app tolerates and a server-rendered one does not.
+
+## Server Components
+
+Components that run only on the server. They never ship to the browser, so their code and their dependencies are not in the bundle at all, and they can read a database or the filesystem directly.
+
+```jsx
+// a Server Component — no state, no effects, no handlers
+const JobPage = async ({ params }) => {
+  const job = await db.jobs.findById(params.id);   // direct data access
+
+  return <JobDetail job={job} />;
+};
+```
+
+They can be async and awaited directly, which removes the loading state and the effect entirely. What they cannot have is anything interactive: no `useState`, no `useEffect`, no event handlers, no browser APIs.
+
+### The boundary
+
+`'use client'` at the top of a file marks where the client tree begins. Everything imported below that point is a Client Component and ships to the browser.
+
+```jsx
+'use client';
+
+const JobFilters = ({ types }) => {
+  const [selected, setSelected] = useState('All');   // needs the client
+  …
+};
+```
+
+<Figure caption="Server above, client islands below. The boundary is a file, not a component.">
+<svg viewBox="0 0 740 210" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Server components at the top of the tree with client islands below a use client boundary.">
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="270" y="24" width="200" height="30"/>
+    <rect x="150" y="86" width="200" height="30"/>
+    <rect x="400" y="86" width="200" height="30"/>
+    <rect x="400" y="148" width="200" height="30"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2">
+    <path d="M370 54 V70 H250 V84"/>
+    <path d="M370 54 V70 H500 V84"/>
+    <path d="M500 116 V146"/>
+  </g>
+  <g stroke="currentColor" stroke-width="1.2" stroke-dasharray="5 4" fill="none">
+    <path d="M120 132 H700"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" fill="currentColor" text-anchor="middle">
+    <text x="370" y="43">JobPage — server</text>
+    <text x="250" y="105">JobDetail — server</text>
+    <text x="500" y="105">JobFilters — client</text>
+    <text x="500" y="167">FilterChip — client</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="10.5" font-style="italic" fill="currentColor">
+    <text x="120" y="126">'use client' — everything below ships to the browser</text>
+  </g>
+</svg>
+</Figure>
+
+Two rules follow. Props crossing the boundary must be serializable, so you cannot pass a function to a Client Component. And a Client Component cannot *import* a Server Component — but it can render one passed to it as `children`, which is the composition trick that keeps the boundary from swallowing the whole tree.
+
+### React.cache
+
+```jsx
+import { cache } from 'react';
+
+export const getJob = cache(async (id) => {
+  const res = await fetch(`${API}/jobs/${id}`);
+  return res.json();
+});
+```
+
+Because components fetch their own data rather than receiving it from a parent, the same thing is often requested several times in one page. `cache` deduplicates those calls within a single server render, keyed by arguments, and is discarded afterwards. It does nothing in a Client Component.
+
+## Server Actions
+
+```jsx
+'use server';
+
+export const addJob = async (formData) => {
+  await db.jobs.create(Object.fromEntries(formData));
+  revalidatePath('/jobs');
+};
+```
+
+A function that runs on the server and can be called from the client — passed straight to a form's `action`. It removes the API route for simple mutations, and it is the same mechanism behind the Actions material in chapter 7.
+
+## Where Next.js fits
+
+Server Components and Server Actions are React features, but using them requires a framework to handle the bundling, routing and server plumbing. Next.js is the main implementation; its App Router is built around them. Remix and React Router's framework mode take a related approach with different trade-offs.
+
+What a framework adds beyond React: file-based routing, its own caching layers, data-loading conventions, image and font handling, and a deployment story.
+
+<Callout kind="note">
+**The honest trade.** You gain smaller bundles, no data-fetching waterfalls, and direct data access without an API layer. You pay with a server to run and pay for, a mental model that requires tracking which side of the boundary every component is on, and a considerably larger surface area to learn. For an authenticated dashboard where SEO is irrelevant, a plain SPA remains a reasonable and much simpler choice.
+</Callout>

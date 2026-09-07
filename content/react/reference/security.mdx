@@ -1,0 +1,105 @@
+---
+title: "Security"
+summary: "The front-end share of it, which is smaller than it looks and easy to get wrong."
+order: 9
+prerequisites: []
+tags: []
+updated: "2026-09-08"
+---
+
+Almost nothing is enforced in the browser. Everything the user must not do is prevented on the server; the front end's job is to avoid handing an attacker a way in. That reduces to a short list.
+
+## React escapes by default
+
+```jsx
+<p>{job.description}</p>
+```
+
+Whatever `description` contains is inserted as text. A `<script>` tag in the data is displayed, not executed. This is why cross-site scripting is uncommon in React apps — and why the exceptions matter, because they are the only places it can happen.
+
+## dangerouslySetInnerHTML
+
+```jsx
+<div dangerouslySetInnerHTML={{ __html: job.description }} />
+```
+
+This turns escaping off. If the string came from a user, an API you do not control, or a CMS, any script in it now runs with full access to the page — the session, the DOM, and anything in `localStorage`.
+
+The name is deliberately awkward, and the awkwardness is the API telling you something.
+
+**If you need it** — rendering a rich-text field is the usual honest case — sanitise first, and do it on the server if you can, since a client-side sanitiser can be bypassed by anything that reaches the DOM before it.
+
+```jsx
+import DOMPurify from 'dompurify';
+
+<div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(job.description) }} />
+```
+
+**Better still, avoid it.** Store rich text as structured data and render it as components, so there is no HTML string to trust.
+
+## The other injection points
+
+```jsx
+<a href={job.website}>Company site</a>
+```
+
+A URL from user data can be `javascript:alert(1)`, which executes on click. Validate the protocol before rendering a link you did not construct:
+
+```jsx
+const isSafe = (url) => {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+};
+```
+
+The same applies to `src` on iframes and images, and to anything passed to a third-party component that renders HTML for you.
+
+External links with `target="_blank"` conventionally carry `rel="noopener noreferrer"` so the opened page cannot reach back through `window.opener`. Browsers have implied `noopener` for `target="_blank"` since 2021, so this is now belt-and-braces rather than the defence itself — still worth writing, because it is explicit and because `noreferrer` does a separate job.
+
+## Environment variables are public
+
+```jsx
+VITE_API_URL=https://api.example.com     // fine
+VITE_STRIPE_SECRET=sk_live_…             // now in the bundle, forever
+```
+
+Any variable exposed to the client build is inlined into the JavaScript that ships. The prefix — `VITE_`, `NEXT_PUBLIC_` — is a marker for "this will be public", not a protection. Anyone can read it in devtools, and it stays in every deployed copy until rotated.
+
+Only publishable keys and public URLs belong there. Anything secret lives on a server, and the browser calls an endpoint that uses it.
+
+## Tokens and storage
+
+Covered in chapter 20, and the short version: a token in `localStorage` is readable by any script running on the page, so one XSS becomes a stolen session. An `httpOnly` cookie is not readable by JavaScript at all, which is why it is the default recommendation — with CSRF handled by `SameSite` and a token.
+
+The two risks compound: the reason to care about `dangerouslySetInnerHTML` is much higher if a session token is sitting in `localStorage` waiting to be read.
+
+## When React itself is the vulnerability
+
+Everything above assumes the framework is sound and the risk comes from what you do with it. In December 2025 that assumption failed. CVE-2025-55182, named React2Shell, was an unauthenticated remote code execution flaw in the React Server Components Flight protocol: the server deserialized attacker-controlled payloads without validating prototype-chain access, so a single crafted POST could run arbitrary code. It scored 10.0, the maximum, and was exploited within hours of disclosure.
+
+It affected React 19.0.0 through 19.2.0 and every framework built on Server Components downstream — the Next.js App Router, React Router's RSC support, Waku, Redwood SDK — including applications that had never written a Server Function, because the endpoint exists regardless. Patches followed the same day; two further, less severe RSC vulnerabilities were found in the weeks after.
+
+Two things are worth taking from it. The first is ordinary: patch quickly, and know which framework versions you are running. The second is the reason it belongs in this book at all. A client-rendered app has no server of its own to compromise; adopting Server Components moves rendering onto a server, and with it a class of vulnerability that front-end work does not otherwise have (see the beyond-the-SPA section). That is a real entry on the cost side of the trade, and it is not usually mentioned alongside the smaller bundles.
+
+## Dependencies
+
+A front-end bundle runs whatever its dependencies contain. A compromised package — or a compromised transitive dependency — has the same access as your own code.
+
+- Run `npm audit` and keep dependencies current; most published fixes are for known issues.
+- Commit the lockfile, so builds are reproducible and cannot silently pull a new version.
+- Be conservative about what you add, especially small packages with many transitive dependencies (see 21).
+- A Content Security Policy limits what can execute even if something malicious gets in.
+
+## Leaking information
+
+- Do not render raw error messages in production — stack traces and API errors expose internals (see 19).
+- Do not log tokens, personal data or full request bodies to the console; users and extensions can read them.
+- Do not rely on hidden UI to protect data. If a component receives a full user record and displays two fields, the rest is still in the response and visible in the network tab.
+
+<Callout kind="note">
+**The one thing to remember.** Client-side checks are for the user's benefit, not for safety. Hidden buttons, disabled inputs, guarded routes and client-side validation all improve the experience, and none of them prevent a determined request. Every rule that matters is enforced where the user cannot reach it.
+</Callout>

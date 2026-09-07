@@ -1,0 +1,259 @@
+---
+title: "State with useState"
+summary: "Giving a component memory, and changing it without breaking React's assumptions."
+order: 4
+prerequisites: []
+tags: []
+updated: "2026-09-04"
+---
+
+A component function runs from scratch on every render, so an ordinary variable cannot remember anything. State is the memory React keeps for a component between renders, and changing it is what tells React to render again.
+
+```jsx
+const [showFull, setShowFull] = useState(false);
+//     current value  updater      initial value
+```
+
+`useState` returns an array of two things, which is why it is destructured with square brackets. Name the updater after the value: `jobs` and `setJobs`, `query` and `setQuery`.
+
+## What belongs in state
+
+| State | Not state |
+|---|---|
+| What the user typed | Anything derived from props or other state |
+| Whether a panel is open | A timer id or a DOM node (use a ref, see 12) |
+| Data fetched from the server | Constants that never change |
+
+The most useful test is whether the value can be calculated from something you already have. `jobs.length` is not state. `jobs` is.
+
+## Updates are scheduled, not immediate
+
+```jsx
+const onClick = () => {
+  setCount(count + 1);
+  console.log(count);   // the old value — this render's count
+};
+```
+
+The setter does not change the variable. It schedules a render, and the new value appears in the next one. `count` in this function belongs to the render that created it, and it will hold that value forever (see 10 on closures).
+
+<Figure caption="Reading state after setting it gives the value you already had.">
+<svg viewBox="0 0 740 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Calling a setter schedules a render; the new value is only visible in the next render, not on the next line.">
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="30" y="46" width="190" height="70"/>
+    <rect x="450" y="46" width="190" height="70"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    
+</g>
+  <g fill="currentColor">
+    <path d="M446 81 l-8 -4 v8 z"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="currentColor" text-anchor="middle">
+    <text x="125" y="34">this render</text>
+    <text x="545" y="34">next render</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="currentColor" text-anchor="middle">
+    <text x="125" y="76">count is 0</text>
+    <text x="125" y="98">and stays 0 here</text>
+    <text x="545" y="76">count is 1</text>
+    <text x="545" y="98">a new function, a new count</text>
+    <text x="333" y="70">setCount(1)</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11.5" font-style="italic" fill="currentColor" text-anchor="middle">
+    <text x="370" y="160">the setter schedules a render; it does not assign to the variable</text>
+  </g>
+</svg>
+</Figure>
+
+### Batching
+
+Several setters in one handler produce one render, not one each.
+
+```jsx
+const onSubmit = () => {
+  setLoading(true);
+  setError(null);
+  setSubmitted(true);   // one render
+};
+```
+
+### Updating from the previous value
+
+When the next value depends on the current one, pass a function. React calls it with the latest value rather than the one captured when the handler was created.
+
+```jsx
+setCount(count + 1);
+setCount(count + 1);        // both compute 0 + 1: the result is 1
+
+setCount((c) => c + 1);
+setCount((c) => c + 1);     // 0 + 1, then 1 + 1: the result is 2
+```
+
+## The update queue
+
+The two results above look arbitrary until you know what a setter actually does. It does not store a value. It pushes an update onto a queue kept on that hook's slot on the fiber (see 9, 10), and schedules a render.
+
+During the next render, when `useState` reaches that slot, React walks the queue in order. It starts from the last committed state and threads each result into the next. An update holding a value ignores whatever it is given and returns its constant. An update holding a function receives the running result and returns a new one.
+
+```jsx
+// count is 0. Handler runs:
+setCount(count + 1);              // queues the value 1
+setCount(count + 1);              // queues the value 1 — count is still 0 here
+
+// next render walks the queue: 0 → 1 → 1
+
+setCount((c) => c + 1);           // queues a function
+setCount((c) => c + 1);           // queues a function
+
+// next render walks the queue: 0 → 1 → 2
+```
+
+Both queues are two entries long and both are processed identically. The difference is only what each entry does with the value it is handed — and a value update, by definition, throws it away.
+
+Two things that seemed like separate rules fall out of this. Batching is free because it is not a special case: three setters in one handler make the queue three long, and one walk handles them all. And reading state on the next line cannot work because the queue has not been walked yet — the walk happens during the next render, and until then the variable in this scope is the only answer that exists.
+
+## Objects and arrays must be replaced
+
+React decides whether state changed by comparing references. Mutating an object leaves the reference identical, so nothing re-renders.
+
+```jsx
+// nothing happens: same array, same reference
+jobs.push(newJob);
+setJobs(jobs);
+
+// a new array
+setJobs([...jobs, newJob]);
+setJobs(jobs.filter((job) => job.id !== id));
+setJobs(jobs.map((job) => (job.id === id ? { ...job, title } : job)));
+
+// objects, including nested ones
+setFilters({ ...filters, type: 'Remote' });
+setForm({ ...form, company: { ...form.company, name } });
+```
+
+The failing version is worse than doing nothing, because the data has changed while the screen has not. The correction appears later, when some unrelated state triggers a render, which makes it look intermittent.
+
+## Initial value versus initializer
+
+On mount, React uses the argument: if it is a function it calls it and stores the result, otherwise it stores the value as given. On every render after that it ignores the argument entirely — never calls it, never compares it — and returns whatever is already on the fiber.
+
+```jsx
+useState(expensiveSetup());        // runs on every render, result discarded after the first
+useState(() => expensiveSetup());  // runs once
+```
+
+The argument to `useState` is only used on the first render, but the expression itself is evaluated every time. Passing a function defers it, so the work happens once.
+
+Both lines are reached on every render; the difference is who does the calling. In the first, the parentheses are yours, so the call happens every time and React discards the result. In the second you hand over an arrow function without calling it, and React calls it on mount alone.
+
+So the rule is simple: if there are parentheses inside `useState`, wrap the expression in an arrow function. A call means work is happening. A literal, a prop or an object literal costs the same either way, so the wrapper is noise — `useState(0)` needs none.
+
+```jsx
+useState(0);                        // no parentheses inside — leave it
+useState(props.title);              // no work — leave it
+useState(() => readSavedFilters());  // a call — wrap it
+```
+
+One case where the wrapper is not optional: when the value you want to store *is* a function. React cannot tell an initializer apart from a value, so it calls anything it is given. Say a confirmation dialog holds the action to run when the user confirms:
+
+```jsx
+const [onConfirm, setOnConfirm] = useState(deleteJob);
+// React calls deleteJob immediately and stores whatever it returned —
+// the job is deleted on mount, and onConfirm is undefined
+
+const [onConfirm, setOnConfirm] = useState(() => deleteJob);
+// React calls the arrow function, which returns deleteJob. Stored intact.
+```
+
+The setter behaves the same way, and this is where people usually meet it. `setOnConfirm(archiveJob)` treats `archiveJob` as an updater — it calls it with the current state and stores the result. Storing the function needs a second arrow:
+
+```jsx
+setOnConfirm(() => archiveJob);   // stores archiveJob
+```
+
+If that reads badly, it is a signal rather than a syntax problem. The friction is pointing at the design, because storing the action is nearly always the worse of two options. Store what happened instead, and decide what to do with it at the call site.
+
+```jsx
+// storing the action
+const [onConfirm, setOnConfirm] = useState(() => noop);
+setOnConfirm(() => () => deleteJob(job.id));
+
+// storing what happened
+const [pending, setPending] = useState(null);   // { type, id } or null
+setPending({ type: 'delete', id: job.id });
+
+const confirm = () => {
+  if (pending.type === 'delete') {
+    deleteJob(pending.id);
+  }
+};
+```
+
+Three reasons the second version wins. A stored function captures the render that created it, so if it closes over `job` and the job later changes, it keeps acting on the old one — a stale closure made permanent by putting it in state (see 10). It is also opaque: `{ type: 'delete', id: 4 }` tells you what the dialog is for when you read it in DevTools or a log, and a closure tells you nothing. And plain data composes — it can move to a reducer, a URL or a store, and be compared in a test, none of which a closure can do.
+
+The exception is a pure function with nothing captured, picked from a fixed set — a comparator or a number formatter. Even then, storing `'asc'` and looking up the comparator is usually clearer than storing the comparator itself.
+
+These two wrappers look identical and solve unrelated problems. An expensive initializer is correct on mount and wasteful on every render afterwards, so the saving grows with the life of the component. A function as state is wrong on mount and costs nothing afterwards, because once the wrong value is in the slot the argument is never looked at again. One is performance; the other is a bug you can only make once.
+
+The reason React cannot avoid this is worth understanding, because it explains a lot about hooks. JavaScript evaluates the argument before `useState` is entered — by the time control reaches React, the work has already been done and there is nothing left to skip. A function is the only thing React can be handed and choose not to call.
+
+Behind that is a deliberate trade. A component is a plain function with no separate setup step, so React calls it top to bottom on every render and identifies each piece of state by its position in the call order (see 10). A class had a constructor that ran once, which made one-time setup natural; function components gave that up in exchange for no boilerplate, and the price is the rules about where hooks may be called — plus this small waste when an argument is computed and thrown away.
+
+## Where useState can go
+
+Every `useState` call must sit at the top level of the component, in the same order on every render. Not inside an `if`, not in a loop, not after an early return, and not inside a nested function.
+
+```jsx
+const JobCard = ({ job }) => {
+  if (!job) {
+    return null;
+  }
+
+  const [showFull, setShowFull] = useState(false);   // unreachable on some renders
+};
+
+const JobCard = ({ job }) => {
+  const [showFull, setShowFull] = useState(false);   // always runs
+
+  if (!job) {
+    return null;
+  }
+};
+```
+
+React matches state to a component by the order the hooks are called, not by name, so a call that happens on one render and not the next shifts everything after it. Chapter 10 covers the mechanism and the rest of the rules; for now, put hooks at the top and return early below them.
+
+## State is per instance
+
+Each rendered component has its own state. Six job cards each have their own `showFull`, and expanding one leaves the rest alone. If two components need to agree on a value, that value has to live above both of them (see 14).
+
+  
+### What happens when
+
+  
+A handler calls `setCount(count + 1)` three times in a row, starting from 0. What is the count afterwards?
+
+  
+1. All three read `count` from the same render, where it is 0, so all three schedule "set it to 1". With `setCount((c) => c + 1)` three times the answer is 3, because each receives the result of the one before.
+
+## Gotchas
+
+- A hook inside a condition, a loop or below an early return breaks state. Top of the component, every render, same order (see 10).
+- The initial value argument is evaluated on every render and ignored after the first. Use a function for anything expensive or effectful; a literal needs no wrapper.
+- To store a function as state, wrap it — in both useState and the setter. React calls whatever it is given, so useState(fn) and setFn(fn) store the return value, not the function.
+- Reading state straight after setting it gives the old value. The variable belongs to the current render.
+- Mutating and calling the setter with the same reference does nothing. No warning, no render.
+- Setting state to the same value usually skips the render. React compares with Object.is and bails out — but it may render the component once before deciding, so a single extra render after setting an equal value is expected, not a bug.
+- Do not copy props into state unless you mean to ignore later changes — the state is initialised once and then diverges.
+- State is not shared between instances. Two cards, two copies.
+- Calling a setter during render loops, unless it is the narrow case of adjusting state from a previous render.
+
+## Takeaways
+
+- useState returns [value, setValue]; the argument is the initial value only.
+- Setters schedule a render. The value in the current function does not change.
+- Multiple updates in one handler are batched into a single render.
+- Use setX((prev) => …) whenever the next value depends on the previous one.
+- Replace objects and arrays; never mutate them.
+- If a value can be derived from what you already have, it is not state.

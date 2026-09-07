@@ -1,0 +1,113 @@
+---
+title: "What React is, and the problem it solves"
+summary: "A library for describing interfaces, and what it deliberately leaves to you."
+order: 1
+prerequisites: []
+tags: []
+updated: "2026-09-04"
+---
+
+React is a JavaScript library for building user interfaces. You describe the interface as a set of **components**, and React keeps the page in sync with the data behind them. It was created at Facebook, and since February 2026 it has been owned by the React Foundation under the Linux Foundation, with Amazon, Meta, Microsoft, Vercel and others as founding members. That changes who stewards the project, not the API.
+
+## Describing instead of instructing
+
+Consider a job board where clicking a filter narrows the list. Written by hand, the work is a sequence of DOM operations — the **imperative** approach, where you spell out the steps that get the page from one state to the next.
+
+```jsx
+// find things, change things, remember everywhere else that shows the same data
+const onFilter = (type) => {
+  const list = document.querySelector('#job-list');
+  list.innerHTML = '';
+
+  jobs
+    .filter((job) => job.type === type)
+    .forEach((job) => {
+      list.appendChild(renderJobCard(job));
+    });
+
+  document.querySelector('#count').textContent = `${list.children.length} jobs`;
+  document.querySelector('#empty').hidden = list.children.length > 0;
+};
+```
+
+React is **declarative**: you write what the screen should contain for a given filter, and never touch the DOM at all. The steps still happen, but React works them out by comparing what you described against what is currently there.
+
+```jsx
+const JobList = ({ jobs, type }) => {
+  const visible = jobs.filter((job) => job.type === type);
+
+  return (
+    <section>
+      <p>{visible.length} jobs</p>
+      {visible.map((job) => (
+        <JobCard key={job.id} job={job} />
+      ))}
+    </section>
+  );
+};
+```
+
+The count cannot disagree with the list, because both are derived from the same value every time. That property is the reason for everything else in this book, and it is often written as a formula:
+
+```jsx
+UI = f(state)
+```
+
+The difference is where the burden of consistency sits. In the imperative version, every place showing the same data is a place you have to remember to update, and a missed one is a bug that appears only in the sequence that triggers it. In the declarative version there is nothing to remember, because the count and the list are both computed from `visible` on every render — they cannot disagree, since neither is stored.
+
+## A library, not a framework
+
+React is routinely called a framework, including by people who know better, because it behaves like one and competes with them. Strictly it is a UI library. A framework is a complete solution: Angular ships a router, an HTTP client and a state management library in the box. React ships the view layer and leaves the rest to you.
+
+| React gives you | You choose |
+|---|---|
+| Components and rendering | Routing — React Router (17) |
+| State inside a component | App-wide state — Context, Redux (14, 15) |
+| Effects and refs | Data fetching and caching (16) |
+| A way to render to the DOM | Styling, forms, testing, build tooling |
+
+That is the trade-off in both directions. It is why React feels less prescriptive than Angular, and why two React codebases can look nothing alike.
+
+## A short history
+
+The API has three generations of patterns in it, and knowing roughly when each arrived makes unfamiliar code easier to place.
+
+| Year | What happened |
+|---|---|
+| 2013 | Open-sourced by Facebook. Components were classes. |
+| 2017 | Fiber: the reconciler rewritten so rendering could be paused (9). |
+| 2019 | Hooks. Function components gain state; classes become legacy. |
+| 2022 | Concurrent rendering, automatic batching, transitions. |
+| 2024 | Actions, use, ref as a prop, Server Components stable. |
+| 2025 | React Compiler reaches its first stable release. 19.2 adds , a stable useEffectEvent, and performance tracks in devtools. |
+| 2026 | React, React Native and JSX move to the React Foundation, hosted by the Linux Foundation. |
+
+## Where React fits among the alternatives
+
+The four common options are React, Vue, Angular and Svelte. React is the most widely used, and its ecosystem is the largest: React Router, Next.js, React Native, and a very deep set of libraries.
+
+Worth being honest that this is not a claim about elegance. Vue and Svelte express many of the same ideas with less ceremony. The strongest practical arguments for React are the size of the job market and the ecosystem. The concepts also transfer: components, props and state exist in all of them, and moving between them is mostly a change of syntax.
+
+  
+### What happens when
+
+  
+A designer asks for the job count to appear in two more places on the page. What changes in each version above?
+
+  
+In the hand-written version, two more DOM updates in `onFilter`, and in every other function that adds or removes a job. In the React version, nothing — the count is derived from `visible.length` wherever it is displayed, so a new display site is a new line of markup and cannot fall out of sync.
+
+## Gotchas
+
+- React does not include routing, data fetching or global state. Every real app adds libraries, and choosing them is part of the job.
+- Next.js, Remix, Gatsby and Astro are built on React, not alternatives to it. What you learn here applies inside all of them.
+- Class components still exist in older codebases. They are not deprecated, but nothing new should be written that way (see the reference section).
+- "Declarative" does not mean automatic. React derives the DOM changes; deciding what the UI should be for a given state is still your job.
+
+## Takeaways
+
+- React keeps the screen in sync with data, so you describe the result rather than the steps.
+- UI = f(state): the same data always produces the same screen.
+- It is a UI library. Routing, data fetching and app-wide state come from elsewhere.
+- The API has class, hook and concurrent-era layers, which is why old code looks different.
+- The core ideas transfer to Vue and Svelte, and to every React meta-framework.

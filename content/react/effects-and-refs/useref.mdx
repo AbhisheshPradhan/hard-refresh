@@ -1,0 +1,215 @@
+---
+title: "useRef"
+summary: "A value that survives renders without causing them, and a handle on a DOM node."
+order: 12
+prerequisites: ["react/foundations/state-with-usestate", "react/how-react-works/the-render-cycle", "react/how-react-works/the-rules-of-react"]
+tags: []
+updated: "2026-09-04"
+---
+
+One hook, two jobs. Both come from the same property: a ref is a plain object, `{ current: … }`, that React keeps on the fiber and hands back unchanged on every render. Writing to it changes nothing else.
+
+## State versus ref
+
+```jsx
+const [count, setCount] = useState(0);   // change it, the component re-renders
+const timerId = useRef(null);            // change it, nothing happens
+
+timerId.current = setInterval(tick, 1000);
+```
+
+<Figure caption="The same information, stored in two places with entirely different consequences.">
+<svg viewBox="0 0 740 190" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A state update triggers a render and commit so the screen updates; writing to a ref changes the value with no render and no screen change.">
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11.5" font-weight="bold" fill="currentColor">
+    <text x="10" y="59">state</text>
+    <text x="10" y="129">ref</text>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="90" y="40" width="130" height="28"/>
+    <rect x="250" y="40" width="110" height="28"/>
+    <rect x="390" y="40" width="110" height="28"/>
+    <rect x="530" y="40" width="180" height="28"/>
+    <rect x="90" y="110" width="150" height="28"/>
+    <rect x="270" y="110" width="150" height="28"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="5 4">
+    <rect x="450" y="110" width="260" height="28"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2">
+    
+<path d="M362 54 H386"/><path d="M502 54 H526"/>
+    <path d="M242 124 H266"/><path d="M422 124 H446"/>
+  </g>
+  <g fill="currentColor">
+    <path d="M248 54 l-8 -4 v8 z"/><path d="M388 54 l-8 -4 v8 z"/><path d="M528 54 l-8 -4 v8 z"/>
+    <path d="M268 124 l-8 -4 v8 z"/><path d="M448 124 l-8 -4 v8 z"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" fill="currentColor" text-anchor="middle">
+    <text x="155" y="59">setCount(1)</text>
+    <text x="305" y="59">render</text>
+    <text x="445" y="59">commit</text>
+    <text x="620" y="59">screen updates</text>
+    <text x="165" y="129">ref.current = 1</text>
+    <text x="345" y="129">value changed</text>
+    <text x="580" y="129">no render, screen unchanged</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11.5" font-style="italic" fill="currentColor" text-anchor="middle">
+    <text x="370" y="172">use state for what the user sees, a ref for what only the code needs</text>
+  </g>
+</svg>
+</Figure>
+
+## Job one: a box that survives renders
+
+A normal variable is recreated on every render, so it cannot remember anything. State remembers but re-renders. A ref remembers silently.
+
+### Timer and subscription handles
+
+```jsx
+const timerId = useRef(null);
+
+const start = () => {
+  timerId.current = setInterval(() => {
+    setSeconds((s) => s + 1);
+  }, 1000);
+};
+
+const stop = () => {
+  clearInterval(timerId.current);
+};
+```
+
+The id must survive between the two handlers, and nothing on screen depends on it. Exactly a ref.
+
+### The previous value of something
+
+```jsx
+const usePrevious = (value) => {
+  const ref = useRef(null);
+  useEffect(() => {
+    ref.current = value;
+  }, [value]);
+  return ref.current;   // the value from the last committed render
+};
+```
+
+The write happens in an effect, so during render the ref still holds the previous value. That ordering is the trick (see 13 for the hook version).
+
+### The latest value inside something long-lived
+
+When a socket handler or subscription must read current state but must not be torn down and rebuilt every time that state changes, keep the value in a ref and update it in an effect. This is the third fix from the stale closure section (see 10), and the one to reach for last.
+
+## Job two: a handle on a DOM node
+
+Pass a ref to an element and React sets `current` to the DOM node at commit, then back to `null` on unmount.
+
+```jsx
+const inputRef = useRef(null);
+
+useEffect(() => {
+  inputRef.current.focus();
+}, []);
+
+<input ref={inputRef} />
+```
+
+Common uses: focusing a field on mount or after a validation error, scrolling an element into view, measuring a node, playing or pausing a video, and mounting a non-React library into a container.
+
+```jsx
+useEffect(() => {
+  const chart = new SomeChartLibrary(containerRef.current, options);
+  return () => {
+    chart.destroy();
+  };
+}, [options]);
+```
+
+Reading a ref during render gives you the DOM as it was before this render's changes were committed, or `null` on the first one. Read refs in effects and handlers (see 8).
+
+## Initialising a ref once
+
+`useRef` takes its initial value the same way `useState` does, and pays the same hidden cost: the argument is evaluated on every render and every result but the first is discarded (see 4). JavaScript builds the object before React is entered, so React has nothing left to skip.
+
+```jsx
+const observerRef = useRef(new IntersectionObserver(onIntersect));
+// a new observer constructed on every render, all but the first thrown away
+```
+
+Unlike `useState`, `useRef` has no initializer-function form to defer the work with, so the idiom is a guard:
+
+```jsx
+const observerRef = useRef(null);
+
+if (observerRef.current === null) {
+  observerRef.current = new IntersectionObserver(onIntersect);
+}
+```
+
+This writes to a ref during render, which the rules otherwise warn against. It is allowed here because the write is idempotent and the ref is this component's own: run the render twice and the outcome is identical, so nothing observable depends on how many times React called the function (see 10). What remains forbidden is reading a ref during render, or writing one to record that something happened — both make the output depend on history rather than on props and state.
+
+## Ref as a prop
+
+A parent often needs a handle on a node inside a child — focusing a custom input, scrolling to a card. In current React, `ref` is an ordinary prop, so the child just accepts it:
+
+```jsx
+const SearchInput = ({ ref, ...props }) => {
+  return <input ref={ref} {...props} />;
+};
+
+// parent
+<SearchInput ref={searchRef} />
+```
+
+Older code wraps the component in `forwardRef` instead, which existed because `ref` used to be reserved rather than passed through. It still works, and you will read a lot of it.
+
+```jsx
+const SearchInput = forwardRef((props, ref) => {
+  return <input ref={ref} {...props} />;
+});
+```
+
+### useImperativeHandle
+
+Sometimes you want to expose a small API rather than the raw node, so callers cannot reach into the DOM and do anything they like.
+
+```jsx
+const SearchInput = ({ ref }) => {
+  const inputRef = useRef(null);
+
+  useImperativeHandle(ref, () => ({
+    focus: () => inputRef.current.focus(),
+    clear: () => { inputRef.current.value = ''; },
+  }));
+
+  return <input ref={inputRef} />;
+};
+```
+
+The parent gets `{ focus, clear }`. Useful for component libraries; unnecessary most of the time, since a plain node handle is simpler and harder to get wrong.
+
+  
+### What happens when
+
+  
+A component keeps a count in a ref, increments it on click, and renders `{countRef.current}`. What appears on screen?
+
+  
+Zero, until something else causes a render. The ref updates on every click, so the value is correct, but nothing tells React to re-render. Then an unrelated state change happens and the number jumps to 7. This is the trap: refs used for values the user is supposed to see produce a screen that is silently out of date.
+
+## Gotchas
+
+- Changing a ref never re-renders. If the value is displayed, it belongs in state.
+- Do not read a ref during render, or write one to record what happened. That makes the component impure (see 10). One-time lazy initialisation is the exception, because the write is idempotent.
+- ref.current is null on the first render and after unmount, so guard before using it.
+- A ref on a component does nothing unless the component accepts it and passes it to a DOM element.
+- Using a ref to dodge a re-render usually hides a real problem. Stale screens are harder to debug than extra renders.
+- Refs are per instance, like state. Two listings each have their own.
+
+## Takeaways
+
+- A ref is a mutable box React keeps across renders. Writing to it triggers nothing.
+- Use it for values the code needs but the screen does not: timer ids, previous values, library instances.
+- Use it for DOM handles: focus, scroll, measure, integrate.
+- Read it in effects and handlers, never during render.
+- ref is a normal prop now; forwardRef is the older equivalent you will still meet.
+- If the user should see the value, it is state, not a ref.

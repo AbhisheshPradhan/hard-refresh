@@ -1,0 +1,212 @@
+---
+title: "Portals, modals and accessibility"
+summary: "Rendering outside the tree, managing focus, and building for people who are not using a mouse."
+order: 25
+prerequisites: ["react/foundations/events-and-conditional-rendering"]
+tags: []
+updated: "2026-09-04"
+---
+
+A modal is the standard example for both halves of this chapter: it needs to escape its parent's CSS, and it is the component most often built in a way that excludes people.
+
+## Portals
+
+A portal renders children into a different DOM node while keeping them in the same React tree.
+
+```jsx
+import { createPortal } from 'react-dom';
+
+const Modal = ({ children, onClose }) => {
+  return createPortal(
+    <div className="overlay">{children}</div>,
+    document.body
+  );
+};
+```
+
+The reason is CSS. A modal rendered inside a card is trapped by that card's `overflow: hidden`, its `transform`, and its stacking context — and no amount of `z-index` escapes a stacking context created by an ancestor. Rendering into `document.body` sidesteps all of it.
+
+What does not change is React. Context still reaches the portal's children, and events still bubble through the React tree rather than the DOM tree (see 5), so a click inside a portal fires handlers on the component that rendered it. That surprises people and is usually what you want — although it means a portal inside a clickable card can trigger that card.
+
+<Figure caption="Two trees, and the portal moves the node in only one of them.">
+<svg viewBox="0 0 740 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A portal's content sits at the end of the document body in the DOM, while remaining a child in the React tree.">
+  <g font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="currentColor" text-anchor="middle">
+    <text x="175" y="24">React tree</text>
+    <text x="555" y="24">DOM</text>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="70" y="40" width="210" height="26"/>
+    <rect x="100" y="82" width="180" height="26"/>
+    <rect x="130" y="124" width="180" height="26"/>
+    <rect x="430" y="40" width="210" height="26"/>
+    <rect x="460" y="82" width="180" height="26"/>
+    <rect x="460" y="150" width="180" height="26"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2">
+    
+<path d="M120 108 V137 H128"/>
+    <path d="M450 66 V95 H458"/><path d="M450 66 V163 H458"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" fill="currentColor" text-anchor="middle">
+    <text x="175" y="57">JobPage</text>
+    <text x="190" y="99">JobCard</text>
+    <text x="220" y="141">Modal</text>
+    <text x="535" y="57">body</text>
+    <text x="550" y="99">div#root … card</text>
+    <text x="550" y="167">div.overlay</text>
+  </g>
+  <g stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 4" fill="none">
+    <path d="M312 137 H456"/>
+  </g>
+  <g fill="currentColor">
+    <path d="M458 137 l-8 -4 v8 z"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" font-style="italic" fill="currentColor" text-anchor="middle">
+    <text x="370" y="205">still a child for context and events; a sibling of the app for CSS</text>
+  </g>
+</svg>
+</Figure>
+
+## What a modal actually needs
+
+The visible part is the easy part. A dialog that works for everyone needs six behaviours:
+
+1. Focus moves into it when it opens.
+2. Tab is trapped inside while it is open.
+3. Escape closes it.
+4. Focus returns to the trigger when it closes.
+5. Content behind it is inert to screen readers and cannot be scrolled.
+6. It is announced as a dialog and has an accessible name.
+
+```jsx
+const Modal = ({ title, onClose, children }) => {
+  const dialogRef = useRef(null);
+  const triggerRef = useRef(null);
+
+  useEffect(() => {
+    triggerRef.current = document.activeElement;
+    dialogRef.current.focus();
+
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = '';
+      triggerRef.current?.focus();
+    };
+  }, [onClose]);
+
+  return createPortal(
+    <div className="overlay" onClick={onClose}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
+        tabIndex={-1}
+        ref={dialogRef}
+        onClick={(e) => {
+          e.stopPropagation();
+        }}
+      >
+        <h2 id="modal-title">{title}</h2>
+        {children}
+      </div>
+    </div>,
+    document.body
+  );
+};
+```
+
+Restoring focus in cleanup is the step most often missed. Without it, closing a dialog drops focus back to the top of the document, and a keyboard user has to tab through the entire page to get back to where they were.
+
+Tab trapping is not in the code above because it is fiddly: you need to find the focusable elements, watch for Tab and Shift+Tab, and wrap at the ends. The native `<dialog>` element with `showModal()` gives you trapping, inertness and Escape for free, and a library such as Radix or React Aria gives you all six behaviours plus the edge cases. Writing this by hand is a reasonable exercise and a poor production decision.
+
+## Accessibility beyond modals
+
+This chapter is the only one with accessibility in its title, but it is not the only place the subject appears — and collecting it here would separate each point from the code it belongs to. It is worth knowing where the rest is. Labels and the four states of a form are in 7. Semantic list markup and keys are in 6. Announcing route changes and where focus goes after navigation are in 17. Boundaries and the `role="alert"` fallback are in 19. Find-in-page, scroll restoration and announcing appended results are in 23. Querying by role and accessible name, which doubles as an accessibility check, is in 27. The combobox and roving-tabindex patterns are in 28.
+
+### Semantic HTML first
+
+```jsx
+<div className="button" onClick={apply}>Apply</div>
+
+<button onClick={apply}>Apply</button>
+```
+
+The first is not focusable, does not respond to Enter or Space, is not announced as a button, and cannot be reached by keyboard. Fixing it properly means adding `role`, `tabIndex` and two key handlers — reimplementing what the element already does. Most accessibility work is choosing the right element: `button`, `a`, `label`, `nav`, `main`, `h1` through `h6` in a sensible order.
+
+### Labels
+
+```jsx
+<label htmlFor="search">Search jobs</label>
+<input id="search" />
+
+// when the design has no visible label
+<input id="search" aria-label="Search jobs" />
+
+// icon-only buttons need a name too
+<button aria-label="Close"><FaTimes /></button>
+```
+
+A placeholder is not a label. It disappears when typing starts, is often too low-contrast, and is not reliably announced.
+
+### Keyboard
+
+- Everything interactive must be reachable by Tab and operable by Enter or Space.
+- Never remove focus outlines without replacing them with something visible. :focus-visible shows them for keyboard users only.
+- Tab order follows DOM order — avoid positive tabIndex values, which override it and are almost always a mistake.
+
+### Announcing changes
+
+A screen reader user does not see a toast appear or a result count change. A live region announces it.
+
+```jsx
+<div role="status" aria-live="polite">
+  {results.length} jobs found
+</div>
+
+<div role="alert">
+  {error}
+</div>
+```
+
+`polite` waits for a pause; `alert` interrupts and is for errors only. The element must exist in the DOM before the content changes — inserting an already-populated live region often announces nothing.
+
+### Checking your work
+
+Unplug the mouse and use the feature. Then run through it with the browser's built-in screen reader. Axe DevTools catches a useful subset automatically, and `eslint-plugin-jsx-a11y` catches common mistakes as you type — but no automated tool catches a focus trap that never returns focus, which is why the keyboard pass matters.
+
+  
+### What happens when
+
+  
+A modal opens, the user tabs, and focus moves to a link in the navbar behind the overlay. What is the experience?
+
+  
+For a sighted mouse user, nothing — they never notice. For a keyboard user, focus has vanished behind a dark overlay and they are tabbing through invisible controls with no way to tell where they are. It is the clearest example of a bug that is invisible to the person who built it, and the reason for the keyboard pass.
+
+## Gotchas
+
+- Events bubble through the React tree, not the DOM tree, so portal clicks reach the component that rendered them.
+- Restoring focus on close is the most commonly missed step.
+- A div with onClick is not a button — no focus, no keyboard, no announcement.
+- Placeholders are not labels.
+- Removing focus outlines without a replacement makes an app unusable by keyboard.
+- A live region added at the same moment as its content is often not announced; render it empty first.
+- aria-modal does not make the background inert on its own; that needs the native dialog, the inert attribute, or a library.
+
+## Takeaways
+
+- Portals move a node in the DOM only; context and events still follow the React tree.
+- Modals need six behaviours, and focus restoration is the one usually missing.
+- Prefer the native `<dialog>` or a headless library over hand-rolling a trap.
+- Semantic elements do most accessibility work for free.
+- Everything interactive must be reachable and operable by keyboard, with visible focus.
+- Announce async changes with a live region; test by unplugging the mouse.

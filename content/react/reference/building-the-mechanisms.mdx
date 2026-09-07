@@ -1,0 +1,164 @@
+---
+title: "Building the mechanisms"
+summary: "Three small implementations. Reading how something works and writing it are different kinds of knowing."
+order: 1
+prerequisites: []
+tags: []
+updated: "2026-09-08"
+---
+
+None of these is React. Each is the smallest thing that reproduces one behaviour the book explains, and the value is in what becomes obvious once you have written it — usually that a rule you had memorised is not a rule at all, but the only arrangement that could have worked.
+
+## 1. Implement useState 4, 10
+
+<Callout kind="note">
+THE QUESTION
+
+A component is a plain function with no setup step. How can calling `useState` twice return two different values that survive between calls?
+</Callout>
+
+```jsx
+const slots = [];
+let cursor = 0;
+
+const useState = (initial) => {
+  const i = cursor;
+  cursor++;
+
+  if (slots[i] === undefined) {
+    slots[i] = initial;              // first time only
+  }
+
+  const setState = (next) => {
+    slots[i] = next;                 // i is captured — this is the closure
+    render();
+  };
+
+  return [slots[i], setState];
+};
+
+const render = () => {
+  cursor = 0;                        // the whole trick
+  Component();
+};
+```
+
+Nothing identifies a hook but the order in which it was called. The cursor advances on each call and resets before each render, so `useState` number two lands on slot two every time — as long as the sequence is identical.
+
+### What breaks
+
+```jsx
+const Component = () => {
+  if (loggedIn) {
+    const [name] = useState('Ada');  // slot 0 when logged in
+  }
+
+  const [theme] = useState('dark');  // slot 1, then slot 0
+};
+```
+
+Log out and the first call disappears. The cursor never reaches one, so `theme` is handed slot zero and returns `'Ada'`. Nothing threw; the value is simply wrong, and it will stay wrong until something re-mounts the component.
+
+That is the whole of the top-level rule. React is not enforcing a style preference — given a plain function with no declaration phase, call order is the only identity available, so a call that happens on some renders and not others necessarily corrupts every slot after it. Notice also that the rule constrains the *call* and nothing else: a condition inside the state, inside a callback, or in what you do with the value cannot move the cursor (see 10).
+
+## 2. Walk a fiber tree 9
+
+<Callout kind="note">
+THE QUESTION
+
+React's old reconciler recursed and could not be paused. The new one can stop halfway through and resume. What changed?
+</Callout>
+
+```jsx
+const tree = {
+  type: 'JobsPage',
+  child: {
+    type: 'JobList',
+    child: { type: 'JobCard' },
+    sibling: { type: 'Pagination' },
+  },
+};
+// each node also has `return`, a pointer back to its parent
+
+const performUnitOfWork = (fiber) => {
+  console.log(fiber.type);           // "render" this one
+
+  if (fiber.child) {
+    return fiber.child;
+  }
+
+  let node = fiber;
+
+  while (node) {
+    if (node.sibling) {
+      return node.sibling;
+    }
+
+    node = node.return;              // climb and try again
+  }
+
+  return null;
+};
+
+let workInProgress = tree;
+
+while (workInProgress) {
+  workInProgress = performUnitOfWork(workInProgress);
+  if (shouldYield()) break;       // and this is the point
+}
+```
+
+Write the recursive version alongside it — `walk(node); node.children.forEach(walk);` — and try to add the same `break`. There is nowhere to put it. You can stop descending, but the frames already on the call stack will unwind and their local variables go with them, so there is nothing to resume from.
+
+The loop version keeps its position in an ordinary variable. Stop, hold `workInProgress`, do something more urgent, and continue later from exactly that node. That is the entire reason for the linked-list shape: `child`, `sibling` and `return` let a single pointer express a position in a tree, and a pointer is data you can put down and pick up. Stack frames are not.
+
+## 3. Implement the update queue 4
+
+<Callout kind="note">
+THE QUESTION
+
+Why does calling `setCount(count + 1)` twice add one, while calling `setCount(c => c + 1)` twice adds two?
+</Callout>
+
+```jsx
+let committed = 0;
+const queue = [];
+
+const setCount = (update) => {
+  queue.push(update);                // a value or a function; not stored yet
+};
+
+const renderPass = () => {
+  let result = committed;            // start from the last committed state
+
+  while (queue.length) {
+    const update = queue.shift();
+    result = typeof update === 'function' ? update(result) : update;
+  }
+
+  committed = result;
+  return committed;
+};
+```
+
+```jsx
+const count = 0;
+
+setCount(count + 1);
+setCount(count + 1);
+renderPass();                        // queue [1, 1] → 1
+
+setCount((c) => c + 1);
+setCount((c) => c + 1);
+renderPass();                        // queue [fn, fn] → 3
+```
+
+Both queues are two entries long and both are walked by the same three lines. The difference is one `typeof` check: a function receives the running result, and a value ignores it and returns its constant. There is no special case for batching anywhere in this code, because batching is not a feature — three setters in a handler simply make the queue three long, and one walk handles them all.
+
+Two other things become hard to misremember once you have written this. Reading `count` after calling the setter cannot possibly give you the new value, because nothing has walked the queue yet and the walk belongs to the next render. And mixing the two forms in one handler is not clever: the later value update discards everything the function updates computed, which is visible here as a one-line consequence rather than a rule to memorise.
+
+<Callout kind="note">
+IF YOU DO ONE
+
+Do the first. It takes ten minutes, it explains a rule you will otherwise carry as arbitrary, and the moment where slot two returns slot one's value is the moment the Rules of Hooks stop being something you obey and become something you could have derived.
+</Callout>

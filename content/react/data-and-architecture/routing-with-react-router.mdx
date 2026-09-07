@@ -1,0 +1,267 @@
+---
+title: "Routing with React Router"
+summary: "Mapping URLs to components, and treating the URL as state."
+order: 17
+prerequisites: ["react/data-and-architecture/data-fetching"]
+tags: []
+updated: "2026-09-04"
+---
+
+React has no router. Routing is the clearest example of the library-versus-framework distinction from chapter 1, and React Router is the de facto standard answer.
+
+```jsx
+npm install react-router
+```
+
+The package name matters, because most tutorials still say `react-router-dom`. That package was unified into `react-router` in v7 and removed in v8, so copying older code fails on the first import. v8 is current; v6 and Remix v2 reached end of life in mid-2026.
+
+## Routes and layouts
+
+```jsx
+import { createBrowserRouter, RouterProvider } from 'react-router';
+
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: <MainLayout />,
+    children: [
+      { index: true, element: <HomePage /> },
+      { path: 'jobs', element: <JobsPage /> },
+      { path: 'jobs/:id', element: <JobPage />, loader: jobLoader },
+      { path: 'add-job', element: <AddJobPage /> },
+      { path: '*', element: <NotFoundPage /> },
+    ],
+  },
+]);
+
+const App = () => {
+  return <RouterProvider router={router} />;
+};
+```
+
+Older codebases build the same tree from JSX with `createRoutesFromElements` and nested `<Route>` elements. Same concepts, different notation.
+
+Three things in that block. `index` is the default child, rendered at the parent's own path. `*` catches everything unmatched, which is how you get a 404 rather than a blank page. And the outer route's element is a layout, not a page.
+
+```jsx
+const MainLayout = () => {
+  return (
+    <>
+      <Navbar />
+      <main>
+        <Outlet />
+      </main>
+      <ToastContainer />
+    </>
+  );
+};
+```
+
+`<Outlet />` marks where the matched child renders. Shared chrome is written once, and — the part that matters more — the layout component does not unmount when you navigate between its children, so anything it holds survives the navigation.
+
+<Figure caption="Nesting in the route tree becomes nesting on screen.">
+<svg viewBox="0 0 740 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Nested routes map onto nested layouts: the root layout renders the navbar and an outlet, and the matched page renders inside it.">
+  <g font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="currentColor" text-anchor="middle">
+    <text x="170" y="24">route tree</text>
+    <text x="545" y="24">what renders at /jobs/3</text>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="40" y="44" width="200" height="28"/>
+    <rect x="80" y="90" width="200" height="28"/>
+    <rect x="80" y="132" width="200" height="28"/>
+    <rect x="80" y="174" width="200" height="28"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2">
+    
+<path d="M60 104 V146 H76"/><path d="M60 146 V188 H76"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" fill="currentColor" text-anchor="middle">
+    <text x="140" y="63">/ — MainLayout</text>
+    <text x="180" y="109">index — HomePage</text>
+    <text x="180" y="151">jobs — JobsPage</text>
+    <text x="180" y="193">jobs/:id — JobPage</text>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="400" y="44" width="290" height="150"/>
+    <rect x="420" y="64" width="250" height="28"/>
+    <rect x="420" y="108" width="250" height="66"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" fill="currentColor" text-anchor="middle">
+    <text x="545" y="83">Navbar</text>
+    <text x="545" y="132">Outlet</text>
+    <text x="545" y="154">JobPage, id = 3</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="10.5" font-style="italic" fill="currentColor">
+    <text x="404" y="38">MainLayout</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="currentColor" text-anchor="middle">
+    <text x="370" y="230">navigating between children swaps the outlet; the layout stays mounted</text>
+  </g>
+</svg>
+</Figure>
+
+## Links, not anchors
+
+```jsx
+import { Link, NavLink } from 'react-router';
+
+<Link to="/jobs">Browse Jobs</Link>
+
+<NavLink
+  to="/jobs"
+  className={({ isActive }) => {
+    return isActive ? 'nav-link active' : 'nav-link';
+  }}
+>
+  Jobs
+</NavLink>
+```
+
+An `<a href>` triggers a full page load: the bundle downloads again, the app restarts, and all state is lost. `Link` intercepts the click and swaps the route in place. The prop is `to`, not `href`.
+
+`NavLink` is the same thing plus knowledge of whether its route is current, which it gives you through a function form of `className`.
+
+## Params and query strings
+
+```jsx
+const { id } = useParams();                        // /jobs/:id
+
+const [searchParams, setSearchParams] = useSearchParams();
+const type = searchParams.get('type') ?? 'All';    // /jobs?type=Remote
+
+setSearchParams({ type: 'Remote' });
+```
+
+Query params are worth using more than people do. A filter kept in `useState` disappears on refresh and cannot be shared or bookmarked; the same filter in the URL survives both, works with the back button, and gives you a link you can send someone. For anything a user might reasonably want to return to — filters, sort order, pagination, an open tab — the URL is the better place for the state.
+
+## Loaders and actions
+
+A loader runs before the route renders, so the component receives data rather than a loading state (see 16).
+
+```jsx
+// JobPage.jsx
+export const jobLoader = async ({ params, request }) => {
+  const res = await fetch(`/api/jobs/${params.id}`, { signal: request.signal });
+
+  if (!res.ok) {
+    throw new Response('Not found', { status: 404 });
+  }
+
+  return res.json();
+};
+
+const JobPage = () => {
+  const job = useLoaderData();
+  return <JobDetail job={job} />;
+};
+```
+
+```jsx
+{ path: 'jobs/:id', element: <JobPage />, loader: jobLoader }
+```
+
+Two details worth copying. The loader receives `request.signal`, so navigating away cancels the fetch without any of the plumbing from chapter 11. And throwing a `Response` hands control to the route's error element, which is how a missing job becomes a 404 page rather than a crash (see 19).
+
+Actions are the same idea for writes. A `<Form>` submits to the route's action, which runs and then revalidates the loaders on the page.
+
+```jsx
+export const addJobAction = async ({ request }) => {
+  const formData = await request.formData();
+
+  await fetch('/api/jobs', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.fromEntries(formData)),
+  });
+
+  return redirect('/jobs');
+};
+```
+
+## Programmatic navigation
+
+```jsx
+const navigate = useNavigate();
+
+navigate('/jobs');
+navigate(`/jobs/${id}`, { replace: true });   // no back-button entry
+navigate(-1);                                 // back
+```
+
+`replace` matters after a redirect. Without it, pressing back returns the user to the page they were just sent away from, and they bounce forward again.
+
+## Protected routes
+
+A layout route with a guard protects everything nested inside it, so the check is written once rather than in every page.
+
+```jsx
+const RequireAuth = () => {
+  const { user, isLoading } = useAuth();
+  const location = useLocation();
+
+  if (isLoading) {
+    return <Spinner />;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  return <Outlet />;
+};
+
+{
+  element: <RequireAuth />,
+  children: [
+    { path: 'add-job', element: <AddJobPage /> },
+    { path: 'jobs/:id/edit', element: <EditJobPage /> },
+  ],
+}
+```
+
+Note the `isLoading` branch. Without it, a page refresh redirects to login before the session has been checked, and the user is thrown out of their own app (see 20). Carrying `location` in state lets the login page send them back where they were.
+
+## Lazy routes
+
+```jsx
+const AddJobPage = lazy(() => import('./pages/AddJobPage'));
+
+{
+  path: 'add-job',
+  element: (
+    <Suspense fallback={<Spinner />}>
+      <AddJobPage />
+    </Suspense>
+  ),
+}
+```
+
+Route boundaries are the natural place to split a bundle, because a user who never opens the add-job page never downloads it (see 18).
+
+  
+### What happens when
+
+  
+A filter is stored with `useState`. The user filters to Remote, opens a job, then presses the browser back button. What do they see?
+
+  
+The unfiltered list. Going back re-renders the jobs page with fresh state, and the filter is gone — so is the scroll position. With the filter in the URL as `?type=Remote`, back returns them to exactly the list they left, and they could have bookmarked or shared it.
+
+## Gotchas
+
+- Tutorials that install react-router-dom are out of date. That package no longer exists; import from react-router.
+- `<a href>` reloads the whole app. Use Link for internal navigation and keep anchors for external URLs.
+- A layout without `<Outlet />` renders no page. The chrome appears and the content never does.
+- Deploying a client-side router needs a server rewrite sending unknown paths to index.html, or a refresh on /jobs/3 returns a 404.
+- Navigating between two params of the same route does not remount the component, so state persists; add `key={id}` if it should reset (see 6).
+- Redirect without replace leaves the abandoned page in history, and back bounces the user forward again.
+- A guard that checks auth before the session has loaded logs the user out on every refresh.
+
+## Takeaways
+
+- Routing is a separate package, imported from react-router; createBrowserRouter plus RouterProvider is the current setup.
+- A parent route whose element is a layout renders its children through `<Outlet />` and stays mounted across them.
+- Link and NavLink navigate without a reload; index is the default child and * is the catch-all.
+- Loaders fetch before the route renders and get cancellation for free; actions handle writes and revalidate.
+- Put shareable state in the URL: filters, sort, pagination, tabs.
+- Protect groups of routes with a guard layout, and handle the loading case in it.

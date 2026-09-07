@@ -1,0 +1,26 @@
+It works on your machine, with twelve records, on a fast connection, using a mouse. Production is the same application meeting everything that assumption leaves out.
+
+Five thousand rows instead of twelve. A three-year-old phone. Someone navigating by keyboard, or listening rather than looking. A refactor six months from now by a person who has never seen this file. And an interviewer asking why you did it that way.
+
+These chapters are about that gap. They are deliberately last, because most of them are bad advice when applied early — memoizing before measuring, abstracting before the second use case, adding types to a prototype you are about to throw away. The judgement they need is knowing when the cost is worth paying, and that is easier once the rest of the material is in place.
+
+<Callout kind="build">
+**Make it survive production**
+
+Take the application from Part V and put it under conditions it has not met.
+
+- Generate five thousand jobs. Measure, then fix what is actually slow rather than what looks slow.
+- Add a modal with a portal, a focus trap and focus restoration, then operate the whole app with the mouse unplugged.
+- Convert the job feature to TypeScript, starting with the domain types, and validate the API response at the boundary.
+- Write tests for the add-job flow: success, validation failure, request failure, and the double-submit guard.
+- Split by route, then check the bundle and find the one dependency that surprises you.
+- Rebuild the autocomplete from chapter 28 in twenty-five minutes, out loud, without notes.
+
+The last item is the honest test of whether the book worked.
+</Callout>
+
+<Callout kind="note">
+**By the end of this part**
+
+You should be able to diagnose a slow interface rather than guess at it, render large amounts of data without freezing the page, choose a component API that survives new requirements, build something usable without a mouse, add types that catch real mistakes, write tests that do not break on every refactor, and put a working component together while someone watches.
+</Callout>

@@ -1,0 +1,6 @@
+{
+	"title": "React",
+	"summary": "Components, the render cycle, and what changes once an app reaches production.",
+	"group": "Frameworks",
+	"order": 1
+}

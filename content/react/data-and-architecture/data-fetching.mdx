@@ -1,0 +1,268 @@
+---
+title: "Data fetching"
+summary: "From a hand-written effect to a cache, and why each step exists."
+order: 16
+prerequisites: ["react/effects-and-refs/useeffect", "react/effects-and-refs/custom-hooks"]
+tags: []
+updated: "2026-09-04"
+---
+
+React has no opinion about how data arrives. That is why there are several approaches, and why arguments about them are common. They are best understood as a progression: each one solves a specific problem the previous one leaves you with.
+
+## Step one: fetch in an effect
+
+```jsx
+const [jobs, setJobs] = useState([]);
+const [loading, setLoading] = useState(true);
+const [error, setError] = useState(null);
+
+useEffect(() => {
+  const controller = new AbortController();
+
+  const load = async () => {
+    try {
+      const res = await fetch('/api/jobs', { signal: controller.signal });
+
+      if (!res.ok) {
+        throw new Error(`Request failed: ${res.status}`);
+      }
+
+      setJobs(await res.json());
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        setError(err);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  load();
+
+  return () => {
+    controller.abort();
+  };
+}, []);
+```
+
+This is correct, and it is worth being able to write from memory (see 11). Note `res.ok`: `fetch` does not throw on a 404 or a 500, only on a network failure, so an unchecked response happily sets an error page's HTML as your job list.
+
+### What it still does not do
+
+| Problem | Consequence |
+|---|---|
+| No cache | Navigate away and back: fetched again, spinner again |
+| No deduplication | Two components needing jobs make two requests |
+| No sharing | Adding a job updates one component; others hold stale copies (see 13) |
+| No refetching | Data goes stale and nothing notices |
+| Repeated per component | The same twenty lines everywhere data is needed |
+
+## Step two: the four states
+
+Before any library, get the states right. Every fetch has four outcomes, and the empty one is the one that gets skipped.
+
+```jsx
+if (loading) {
+  return <Spinner />;
+}
+
+if (error) {
+  return <ErrorMessage error={error} onRetry={refetch} />;
+}
+
+if (jobs.length === 0) {
+  return <EmptyState message="No jobs match those filters" />;
+}
+
+return <JobList jobs={jobs} />;
+```
+
+An empty list rendering as a blank area looks broken. An error with no retry is a dead end. Skeletons are worth preferring over spinners where the shape of the result is known, because the layout does not jump when the data lands.
+
+## Step three: route loaders
+
+A router can fetch before the route renders, which removes the loading state from the component entirely (see 17).
+
+```jsx
+const jobLoader = async ({ params }) => {
+  const res = await fetch(`/api/jobs/${params.id}`);
+  return res.json();
+};
+
+// in the component
+const job = useLoaderData();   // always defined
+```
+
+This fixes timing — no null checks, no spinner branch, and no waterfall where a parent renders before its child starts fetching. It does not give you a cache: navigate away and back and the loader runs again.
+
+## Step four: a query library
+
+TanStack Query — still widely called React Query — treats server data as a cache rather than as state.
+
+```jsx
+const { data: jobs, isPending, error, refetch } = useQuery({
+  queryKey: ['jobs'],
+  queryFn: async () => {
+    const res = await fetch('/api/jobs');
+
+    if (!res.ok) {
+      throw new Error('Failed to load jobs');
+    }
+
+    return res.json();
+  },
+});
+```
+
+The `queryKey` is the identity of the data. Two components using `['jobs']` share one cache entry and one request. A key with a variable in it — `['jobs', { type }]` — caches each filter separately and refetches when the key changes.
+
+<Figure caption="The problem is not the request count. It is that two copies of the same data can disagree.">
+<svg viewBox="0 0 740 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Without a cache each component fetches separately; with a shared cache one request serves both and a mutation invalidates it for all readers.">
+  <g font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="currentColor" text-anchor="middle">
+    <text x="175" y="24">two hooks, two fetches</text>
+    <text x="560" y="24">one cache entry</text>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="40" y="44" width="120" height="30"/>
+    <rect x="190" y="44" width="120" height="30"/>
+    <rect x="40" y="124" width="120" height="30"/>
+    <rect x="190" y="124" width="120" height="30"/>
+    <rect x="440" y="44" width="110" height="30"/>
+    <rect x="580" y="44" width="110" height="30"/>
+    <rect x="470" y="124" width="190" height="30"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2">
+    
+<path d="M250 74 V122"/>
+    <path d="M495 74 V100 H565 V122"/>
+    <path d="M635 74 V100"/>
+  </g>
+  <g fill="currentColor">
+    <path d="M100 124 l-4 -8 h8 z"/><path d="M250 124 l-4 -8 h8 z"/><path d="M565 124 l-4 -8 h8 z"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" fill="currentColor" text-anchor="middle">
+    <text x="100" y="63">JobList</text>
+    <text x="250" y="63">JobCount</text>
+    <text x="100" y="143">GET /jobs</text>
+    <text x="250" y="143">GET /jobs</text>
+    <text x="495" y="63">JobList</text>
+    <text x="635" y="63">JobCount</text>
+    <text x="565" y="143">one GET, cached as ['jobs']</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" font-style="italic" fill="currentColor" text-anchor="middle">
+    <text x="175" y="186">each holds its own copy;</text>
+    <text x="175" y="202">a mutation updates one</text>
+    <text x="560" y="186">both read the same entry;</text>
+    <text x="560" y="202">invalidating updates both</text>
+  </g>
+</svg>
+</Figure>
+
+### Staleness and refetching
+
+Cached data is served immediately and refetched in the background if it is stale — the user sees data at once, and it corrects itself a moment later. `staleTime` controls how long a result is considered fresh; the right value depends on how fast the data changes and how bad it is to show something slightly old.
+
+### Mutations and invalidation
+
+```jsx
+const queryClient = useQueryClient();
+
+const { mutate: addJob } = useMutation({
+  mutationFn: async (newJob) => {
+    const res = await fetch('/api/jobs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newJob),
+    });
+
+    return res.json();
+  },
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['jobs'] });
+  },
+});
+```
+
+Invalidation is the answer to the stale-copy problem from chapter 13. One line marks the data out of date, and every component reading that key refetches — no callbacks passed down, no manual refresh flags.
+
+### Optimistic updates
+
+Show the result before the server confirms it, and roll back if it fails.
+
+```jsx
+useMutation({
+  mutationFn: deleteJob,
+  onMutate: async (id) => {
+    await queryClient.cancelQueries({ queryKey: ['jobs'] });
+
+    const previous = queryClient.getQueryData(['jobs']);
+
+    queryClient.setQueryData(['jobs'], (old) => {
+      return old.filter((job) => job.id !== id);
+    });
+
+    return { previous };
+  },
+  onError: (err, id, context) => {
+    queryClient.setQueryData(['jobs'], context.previous);
+  },
+  onSettled: () => {
+    queryClient.invalidateQueries({ queryKey: ['jobs'] });
+  },
+});
+```
+
+Four steps, and each matters. Cancel in-flight queries, or a refetch already on its way will land and overwrite the optimistic change. Snapshot, or there is nothing to roll back to. Apply. Then settle by refetching, so the server has the last word.
+
+Be optimistic when the operation almost always succeeds and is easy to reverse. Do not be optimistic about payments, or anything where showing success and then retracting it is worse than a short wait.
+
+### useSuspenseQuery
+
+A variant that suspends instead of returning a loading flag, so `data` is always defined and the states move up into boundaries (see 18, 19).
+
+```jsx
+const { data } = useSuspenseQuery({ queryKey: ['jobs'], queryFn: fetchJobs });
+```
+
+Two caveats. Two suspense queries in one component run in series, because the first suspends before the second is reached — use `useSuspenseQueries` to parallelise. And there is no `enabled` option, so conditional fetching stays on `useQuery`.
+
+## Choosing
+
+| Approach | Gives you | Costs |
+|---|---|---|
+| Effect | No dependency, full control | Every problem above, per component |
+| Route loader | Data before render, no waterfall | No cache; tied to routes |
+| Query library | Cache, dedupe, refetch, invalidate | A dependency and its concepts |
+
+**Default:** a query library, from the first feature that fetches. The alternative is writing a worse cache by hand later.
+
+**Use a plain effect** when there is exactly one fetch in the app, when you are avoiding dependencies deliberately, or when the thing you are synchronising with is not a request at all.
+
+**Use loaders** when the data belongs to a route and you are already using the router's data APIs — and note they compose with a query client rather than competing with it: a loader can prime the cache.
+
+  
+### What happens when
+
+  
+Two components call `useQuery({ queryKey: ['jobs'] })` and mount at the same moment. How many requests are sent?
+
+  
+One. Identical keys are deduplicated, so the second subscribes to the request already in flight. Both then read the same cache entry, which is why they cannot disagree — the property that hand-written fetching in two components does not have.
+
+## Gotchas
+
+- fetch does not throw on 404 or 500. Check res.ok or the error branch never runs.
+- Everything the query function reads belongs in the key. A key missing the filter serves the wrong cached result.
+- An empty state is not a loading state. Handle both, or an empty result looks like a hang.
+- Optimistic updates without cancelQueries can be overwritten by a refetch that was already running.
+- Two useSuspenseQuery calls in one component fetch in series. Use the plural form for parallel work.
+- Server data in Redux or Context means writing caching, staleness and invalidation by hand (see 15).
+
+## Takeaways
+
+- Hand-written fetching is correct and leaves you without a cache, deduplication or sharing.
+- Handle loading, error, empty and success every time; give errors a retry.
+- Loaders fix timing; caches fix duplication and staleness.
+- The query key is the identity of the data: same key, same cache entry, one request.
+- Invalidate after a mutation and every reader updates.
+- Optimistic updates need cancel, snapshot, apply, settle — and are wrong for irreversible actions.

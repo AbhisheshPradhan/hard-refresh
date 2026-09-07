@@ -1,0 +1,197 @@
+---
+title: "Error boundaries"
+summary: "Containing a failure so one broken component does not take the page with it."
+order: 19
+prerequisites: ["react/data-and-architecture/data-fetching", "react/data-and-architecture/routing-with-react-router"]
+tags: []
+updated: "2026-09-04"
+---
+
+An uncaught error during render unmounts the entire tree. React's reasoning is that a half-rendered interface is worse than none — a banking app showing the wrong balance is more dangerous than one showing nothing. So the default is a blank page, and it is your job to decide where that is too much.
+
+An error boundary is a component that catches errors from anything below it and renders a fallback instead.
+
+## What they catch
+
+| Caught | Not caught |
+|---|---|
+| Errors during render | Errors in event handlers |
+| Errors in lifecycle methods | Errors in async code, including setTimeout and promises |
+| Errors in constructors below it | Errors thrown in the boundary itself |
+| A failed lazy import | Errors on the server, which are handled separately — though with streaming, boundaries do participate |
+
+The exclusions have one thing in common: they happen outside React's render call stack, so React never sees them. A click handler that throws is an ordinary JavaScript error — handle it with `try/catch` and state. A rejected fetch is a promise rejection, which is why data errors are handled by the query layer rather than by a boundary (see 16).
+
+## Writing one
+
+This is the one thing that still requires a class component. There is no hook equivalent — the two lifecycle methods have no functional counterpart.
+
+```jsx
+class ErrorBoundary extends React.Component {
+  state = { error: null };
+
+  static getDerivedStateFromError(error) {
+    return { error };   // render the fallback
+  }
+
+  componentDidCatch(error, info) {
+    logToService(error, info.componentStack);   // report it
+  }
+
+  render() {
+    if (this.state.error) {
+      return this.props.fallback ?? <p>Something went wrong.</p>;
+    }
+
+    return this.props.children;
+  }
+}
+```
+
+Two methods, two jobs. `getDerivedStateFromError` runs during render and decides what to show. `componentDidCatch` runs after commit and is where reporting belongs, since it receives the component stack — the tree path to the failure, which is far more useful than the JavaScript stack.
+
+In practice most teams use `react-error-boundary` rather than writing this, because it adds reset behaviour and a hook for throwing async errors into the nearest boundary.
+
+```jsx
+import { ErrorBoundary } from 'react-error-boundary';
+
+<ErrorBoundary
+  FallbackComponent={JobListError}
+  onReset={() => {
+    refetch();
+  }}
+  resetKeys={[filter]}
+>
+  <JobList filter={filter} />
+</ErrorBoundary>
+```
+
+## Placement
+
+<Figure caption="The boundary decides the blast radius.">
+<svg viewBox="0 0 740 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A single root boundary replaces the whole app when anything fails; boundaries around independent regions keep the rest of the page working.">
+  <g font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="currentColor" text-anchor="middle">
+    <text x="175" y="24">one boundary at the root</text>
+    <text x="560" y="24">a boundary per region</text>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="5 4">
+    <rect x="40" y="40" width="270" height="150"/>
+    <rect x="430" y="98" width="280" height="52"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="60" y="60" width="230" height="30"/>
+    <rect x="60" y="102" width="230" height="30"/>
+    <rect x="60" y="144" width="230" height="30"/>
+    <rect x="450" y="60" width="240" height="30"/>
+    <rect x="450" y="106" width="240" height="30"/>
+    <rect x="450" y="160" width="240" height="30"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" fill="currentColor" text-anchor="middle">
+    <text x="175" y="79">Navbar</text>
+    <text x="175" y="121">SalaryChart — throws</text>
+    <text x="175" y="163">JobList</text>
+    <text x="570" y="79">Navbar — fine</text>
+    <text x="570" y="125">SalaryChart — fallback</text>
+    <text x="570" y="179">JobList — fine</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" font-style="italic" fill="currentColor" text-anchor="middle">
+    <text x="175" y="220">one widget fails and the</text>
+    <text x="175" y="236">whole page is replaced</text>
+    <text x="560" y="220">the failure is contained;</text>
+    <text x="560" y="236">the page still works</text>
+  </g>
+</svg>
+</Figure>
+
+A useful default is three levels:
+
+- One at the root, as a last resort, showing a generic error page with a reload option. It should never be the only one.
+- One per route, so a broken page leaves the navigation working and the user can go elsewhere.
+- One around any independently failing widget — a chart, an embedded map, a third-party feed, an item in a list that might have malformed data.
+
+The question to ask for each region: if this fails, is the rest of the page still worth showing? If yes, it needs its own boundary.
+
+## Recovery
+
+A fallback that only says "something went wrong" leaves the user stuck. Give them a way out.
+
+```jsx
+const JobListError = ({ error, resetErrorBoundary }) => {
+  return (
+    <div role="alert">
+      <p>We could not load these jobs.</p>
+      <button onClick={resetErrorBoundary}>Try again</button>
+    </div>
+  );
+};
+```
+
+A boundary stays in its error state until it is reset, which matters on navigation: without a reset, moving to a different route can leave the fallback on screen. `resetKeys` handles this — give it the route id or the filter, and the boundary clears itself when that value changes.
+
+Show the raw error message in development and a plain sentence in production. Stack traces and API messages leak information and mean nothing to a user.
+
+## Router error elements
+
+React Router has its own version, which also catches errors thrown by loaders and actions.
+
+```jsx
+<Route
+  path="jobs/:id"
+  element={<JobPage />}
+  loader={jobLoader}
+  errorElement={<JobError />}
+/>
+
+const JobError = () => {
+  const error = useRouteError();
+
+  if (isRouteErrorResponse(error) && error.status === 404) {
+    return <NotFound />;
+  }
+
+  return <GenericError />;
+};
+```
+
+This is why a loader can throw a `Response` for a missing record (see 17): the router turns it into a rendered page rather than a crash. Errors bubble to the nearest `errorElement` up the route tree, so one on the root route acts as the catch-all.
+
+## Async errors
+
+Because boundaries do not catch async failures, errors from fetches need handling where they occur — which is what the error state of a query is for. If you want them to reach a boundary instead, they have to be re-thrown during render.
+
+```jsx
+const { data, error } = useQuery({ queryKey: ['jobs'], queryFn: fetchJobs });
+
+if (error) {
+  throw error;   // now it happens during render, so a boundary catches it
+}
+```
+
+`useSuspenseQuery` does this for you, which is the trade it makes: no error branch in the component, and an error boundary becomes mandatory (see 16).
+
+  
+### What happens when
+
+  
+A click handler throws. There is an error boundary wrapping the component. What does the user see?
+
+  
+Nothing changes on screen — the boundary does not catch it, and the error goes to the console as an unhandled exception. The button appears to do nothing, which is worse than a visible failure because there is no signal that anything went wrong. Handlers need their own `try/catch` and an error state.
+
+## Gotchas
+
+- Event handlers, async code and promise rejections are not caught. Handle those where they happen.
+- A boundary cannot catch its own errors. Keep the fallback simple, and never let it touch the data that failed.
+- Error boundaries must be classes. There is no hook version.
+- In development the error overlay appears anyway. The boundary is working; dismiss the overlay to see the fallback.
+- Without a reset, the fallback can persist across navigation. Use resetKeys or key the boundary by route.
+- Do not show raw error text in production. It leaks internals and helps nobody.
+
+## Takeaways
+
+- An uncaught render error unmounts the whole tree by design; boundaries decide how far a failure spreads.
+- They catch render, lifecycle and lazy-import errors — not handlers, async code or their own errors.
+- They are the one remaining case for a class component: getDerivedStateFromError to display, componentDidCatch to report.
+- Place one at the root, one per route, and one around any widget that can fail alone.
+- Give the fallback a retry, and reset it on navigation.
+- The router's errorElement covers loaders and actions as well as render.

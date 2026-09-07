@@ -1,0 +1,220 @@
+---
+title: "Suspense, lazy loading and transitions"
+summary: "Declaring what shows while waiting, and keeping the app responsive while it does."
+order: 18
+prerequisites: ["react/how-react-works/reconciliation-fiber-and-re-renders", "react/effects-and-refs/custom-hooks", "react/data-and-architecture/data-fetching", "react/data-and-architecture/routing-with-react-router"]
+tags: []
+updated: "2026-09-04"
+---
+
+Two different waits, often confused. Waiting for *something to arrive* — code, data — is Suspense. Waiting for *something slow to render* is transitions. Both are about the interface staying usable meanwhile.
+
+## Suspense
+
+A `<Suspense>` boundary declares what to show while anything inside it is not ready.
+
+```jsx
+<Suspense fallback={<JobListSkeleton />}>
+  <JobList />
+</Suspense>
+```
+
+The inversion is the point. Instead of each component tracking its own loading flag and rendering its own spinner, a parent declares the waiting state for a region. The component itself is written as though the data is simply there.
+
+Something "suspends" by signalling that it is not ready yet. In current code that signal is `use(promise)`; older code and some libraries throw the promise directly, which React still honours. You rarely write either — it comes from `lazy()`, from `useSuspenseQuery` (see 16), or from a framework's data layer.
+
+## Code splitting with lazy
+
+```jsx
+import { lazy, Suspense } from 'react';
+
+const AddJobPage = lazy(() => import('./pages/AddJobPage'));
+
+<Suspense fallback={<Spinner />}>
+  <AddJobPage />
+</Suspense>
+```
+
+The dynamic `import()` tells the bundler to put that module in its own file, downloaded on first use. Routes are the natural split point: a visitor browsing jobs never downloads the code for adding one (see 17).
+
+Splitting has a cost — an extra network round trip at exactly the moment the user asked for something. Split routes, heavy libraries such as a chart or an editor, and modals that most users never open. Splitting a component that appears on the first screen makes the app slower, not faster.
+
+## Prefetching
+
+Splitting moves the download to the moment the user asks for something, which is the worst moment for it to happen. Prefetching moves it earlier, to a moment when you have good reason to think they are about to.
+
+A lazy import is just a function, so it can be called before it is rendered. Calling it starts the download; calling it again returns the same promise.
+
+```jsx
+const loadAddJob = () => import('./pages/AddJobPage');
+const AddJobPage = lazy(loadAddJob);
+
+<Link
+  to="/add-job"
+  onMouseEnter={loadAddJob}
+  onFocus={loadAddJob}
+>
+  Add Job
+</Link>
+```
+
+Hovering a link is a strong signal of intent, and the gap between hover and click is usually a few hundred milliseconds — often enough to have the chunk ready before the navigation starts. `onFocus` covers keyboard users, who never hover.
+
+### When to prefetch
+
+| Trigger | Good for |
+|---|---|
+| Hover or focus on a link | Navigation the user is about to make |
+| After the initial page settles | The one or two routes almost everyone visits next |
+| Entering the viewport | A heavy component further down a long page |
+| On authentication | The dashboard a signed-in user always lands on |
+
+Routers often do this for you. React Router's framework mode prefetches route modules on link intent, and Next.js prefetches links in the viewport. Check before hand-rolling it.
+
+### Prefetching data, not just code
+
+The same idea applies to the request the page will make once it arrives. Warming the cache on hover means the data is often already there when the route renders (see 16).
+
+```jsx
+const prefetchJob = (id) => {
+  queryClient.prefetchQuery({
+    queryKey: ['job', id],
+    queryFn: () => fetchJob(id),
+  });
+};
+
+<Link to={`/jobs/${job.id}`} onMouseEnter={() => prefetchJob(job.id)}>
+  {job.title}
+</Link>
+```
+
+### What it costs
+
+Prefetching spends bandwidth on things the user may never open, which matters on a metered or slow connection. Prefetch a small number of likely destinations, not everything on the page — a list of fifty links that each prefetch on hover will download the entire app as the user scans it.
+
+## Where boundaries go
+
+<Figure caption="The boundary decides how much of the page disappears while waiting.">
+<svg viewBox="0 0 740 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A boundary placed at the root blanks the whole page; boundaries placed around independent regions let the rest of the page render.">
+  <g font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="currentColor" text-anchor="middle">
+    <text x="175" y="24">one boundary at the root</text>
+    <text x="560" y="24">a boundary per region</text>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="5 4">
+    <rect x="40" y="40" width="270" height="150"/>
+    <rect x="440" y="106" width="260" height="40"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="60" y="60" width="230" height="30"/>
+    <rect x="60" y="102" width="230" height="30"/>
+    <rect x="60" y="144" width="230" height="30"/>
+    <rect x="430" y="60" width="280" height="30"/>
+    <rect x="450" y="112" width="240" height="28"/>
+    <rect x="430" y="160" width="280" height="30"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" fill="currentColor" text-anchor="middle">
+    <text x="175" y="79">Navbar</text>
+    <text x="175" y="121">JobList — loading</text>
+    <text x="175" y="163">Sidebar</text>
+    <text x="570" y="79">Navbar — visible</text>
+    <text x="570" y="130">JobList — skeleton</text>
+    <text x="570" y="179">Sidebar — visible</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" font-style="italic" fill="currentColor" text-anchor="middle">
+    <text x="175" y="215">everything is replaced by</text>
+    <text x="175" y="231">one spinner</text>
+    <text x="560" y="215">only the region that is</text>
+    <text x="560" y="231">waiting shows a fallback</text>
+  </g>
+</svg>
+</Figure>
+
+Place a boundary around a region that can meaningfully be absent while the rest of the page is useful. Too high and every navigation blanks the app. Too low and the page fills with a dozen independent spinners, which reads as chaos.
+
+Prefer a skeleton shaped like the eventual content over a spinner: the layout does not jump when the data lands, and the user can see what is coming.
+
+## Transitions
+
+Suspense handles waiting for arrival. A transition handles work that is slow to render.
+
+```jsx
+const [isPending, startTransition] = useTransition();
+
+const onFilterChange = (type) => {
+  startTransition(() => {
+    setFilter(type);   // interruptible: typing and clicking still respond
+  });
+};
+
+<div style={{ opacity: isPending ? 0.6 : 1 }}>
+  <JobList filter={filter} />
+</div>
+```
+
+Marking an update as a transition tells React it is not urgent, so an urgent update — a keystroke, a click — can interrupt it (see 9). The work still takes the same time. What changes is that it no longer blocks the interface.
+
+`isPending` is what makes it usable: the previous content stays on screen, dimmed or marked, instead of being replaced by a spinner. The user sees stale-but-real content rather than nothing.
+
+### useDeferredValue
+
+The same idea applied to a value rather than an update, which suits the case where the slow part is derived from something the user is typing.
+
+It takes an optional second argument, `useDeferredValue(value, initialValue)`, which sets what the deferred copy holds on the very first render before any deferred work has completed — useful when the lagging value would otherwise start as an empty string or an empty list and render a misleading state.
+
+```jsx
+const [query, setQuery] = useState('');
+const deferredQuery = useDeferredValue(query);
+
+<input
+  value={query}
+  onChange={(e) => {
+    setQuery(e.target.value);
+  }}
+/>
+
+<JobResults query={deferredQuery} />
+```
+
+The input updates on every keystroke because it uses `query`. The expensive list uses `deferredQuery`, which lags behind and can be interrupted by the next keystroke.
+
+|  | useTransition | useDeferredValue |
+|---|---|---|
+| Marks | An update you control | A value you receive |
+| Use when | You call the setter | The value comes from props or elsewhere |
+| Gives | isPending | A lagging copy of the value |
+
+### Against a debounce
+
+A debounce waits a fixed time before doing the work at all. A deferred value does the work immediately but interruptibly.
+
+**Default:** deferred value when the cost is rendering — it adapts to the device instead of guessing a delay that is too slow on a fast machine and too fast on a slow one. **Debounce** when the cost is a request or a rate-limited API, where not firing at all is the whole point (see 13).
+
+  
+### What happens when
+
+  
+A single `<Suspense>` wraps the entire app, and a lazily loaded route is opened. What does the user see?
+
+  
+The whole interface disappears — navbar, sidebar, everything — replaced by one fallback, then reappears. It looks like a full page reload, which is the specific experience a single-page app exists to avoid. Move the boundary inside the layout so the chrome stays and only the outlet area shows a fallback.
+
+## Gotchas
+
+- A transition does not make anything faster. The same work happens; it stops blocking urgent updates.
+- lazy needs a default export, or the import has to be re-mapped to one.
+- Splitting first-screen components makes things slower. Split what is not needed immediately.
+- A boundary too high blanks the page on every navigation; too many boundaries fill it with spinners.
+- Suspense does not catch errors. A failed lazy import needs an error boundary next to it (see 19).
+- A deploy invalidates chunk hashes. Anyone with the tab already open requests a file that no longer exists, so a lazy route fails for exactly the users who were mid-session. Handle it with an error boundary that offers a reload.
+- Prefetching everything defeats the split. Prefetch on intent, not on render.
+- Two useSuspenseQuery calls in one component run in series, creating a waterfall (see 16).
+
+## Takeaways
+
+- Suspense declares the waiting state for a region, so components can assume their data exists.
+- lazy plus a dynamic import splits the bundle; routes and heavy libraries are the places to do it.
+- Prefetch on hover or focus to pay the download cost before the user asks, without prefetching the whole app.
+- Boundary placement is the design decision: enough of the page stays useful, without a spinner per component.
+- Transitions mark work as interruptible and give you isPending to show stale content instead of a blank.
+- useDeferredValue is the same idea for a value you did not set yourself.
+- Deferred value for render cost, debounce for request cost.

@@ -1,0 +1,139 @@
+---
+title: "JSX"
+summary: "HTML-shaped syntax that is really JavaScript, and the few places the difference shows."
+order: 2
+prerequisites: []
+tags: []
+updated: "2026-09-04"
+---
+
+JSX — JavaScript XML — is the markup a component returns. It looks like HTML, but it is neither HTML nor a string. A build step turns it into ordinary function calls. It is a syntax extension rather than part of the language, and not a React invention: Vue, Solid and Preact use it too.
+
+```jsx
+// what you write
+<h3 className="title">{job.title}</h3>
+
+// what it becomes
+jsx('h3', { className: 'title', children: job.title })
+
+// which produces a plain object — the element
+{ type: 'h3', props: { className: 'title', children: 'React Developer' } }
+```
+
+Everything odd about JSX follows from that. It is JavaScript, so it obeys JavaScript's rules: a function returns one value, expressions are allowed where values are allowed, and `class` is a reserved word.
+
+## One root element
+
+A function returns one thing, so a component returns one element. This is an error:
+
+```jsx
+return (
+  <h3>{job.title}</h3>
+  <p>{job.location}</p>   // JSX expressions must have one parent element
+);
+```
+
+Wrap it. If a real `<div>` would be unwanted in the output, use a **fragment**, which produces no DOM node. This matters inside a grid or flex container, where the wrapper rather than your elements becomes the item being laid out, so your layout rules apply to the wrong node — and inside tables and lists, where an extra `<div>` is invalid markup.
+
+```jsx
+return (
+  <>
+    <h3>{job.title}</h3>
+    <p>{job.location}</p>
+  </>
+);
+```
+
+## Braces hold an expression
+
+Anything inside `{ }` is evaluated as JavaScript and inserted.
+
+```jsx
+<h3>{job.title}</h3>
+<p>{job.salary} / year</p>
+<p>{job.description.substring(0, 90)}</p>
+<a href={`/jobs/${job.id}`}>Read more</a>
+```
+
+The word *expression* is the constraint. An expression produces a value; a statement does not. So `if`, `for` and `switch` cannot go inside braces, and everything else can.
+
+## Conditional rendering
+
+| Need | Use |
+|---|---|
+| One thing or another | Ternary: `{a ? x : y}` |
+| Something or nothing | `{a && x}` |
+| Several branches, or an early exit | An if above the return |
+
+```jsx
+<button>{showFull ? 'Less' : 'More'}</button>
+
+{job.isRemote && <span className="badge">Remote</span>}
+
+const JobPage = ({ job }) => {
+  if (!job) {
+    return <NotFound />;
+  }
+
+  return <JobDetail job={job} />;
+};
+```
+
+### The zero trap
+
+`&&` returns its left side when that side is falsy, and React renders numbers. So an empty list prints a literal `0` on the page.
+
+```jsx
+{jobs.length && <JobList jobs={jobs} />}       // renders 0 when empty
+
+{jobs.length > 0 && <JobList jobs={jobs} />}  // renders nothing
+```
+
+Guard with a boolean, not a number. React ignores `false`, `null` and `undefined`, but `0` and `NaN` are perfectly good things to display, so it displays them. An empty string is also returned by `&&`, and renders as nothing — so it is the one falsy value that needs no guard.
+
+## Where JSX differs from HTML
+
+| HTML | JSX | Why |
+|---|---|---|
+| class | className | Reserved word in JavaScript |
+| for | htmlFor | Reserved word |
+| onclick | onClick | Props are camelCase |
+| tabindex | tabIndex | Same |
+| `<!-- … -->` | `{/* … */}` | Comments are JavaScript |
+| `<br>` | `<br />` | Every tag must close |
+
+Two exceptions worth knowing: `data-*` and `aria-*` attributes keep their dashes, because they are passed through untouched.
+
+## Inline styles
+
+```jsx
+<p style={{ color: 'red', fontSize: '24px' }}>Closing soon</p>
+```
+
+Two sets of braces: the outer pair means "evaluate an expression", the inner pair is an object literal. Property names are camelCase, and values are strings. This project uses utility classes for styling, so inline styles appear rarely — mostly for values computed at runtime, such as a progress bar's width.
+
+  
+### What happens when
+
+  
+You render `{jobs.filter(isRemote).length && 'Remote roles available'}` and no jobs are remote. What appears?
+
+  
+A `0`, on its own, in the middle of the page. The filter returns an empty array, `length` is `0`, `&&` short-circuits and returns that `0`, and React renders numbers faithfully. Compare with `> 0`, which produces `false`, and React skips false.
+
+## Gotchas
+
+- 0 and NaN render; false, null, undefined and '' do not. Guard with a comparison rather than a length.
+- Statements cannot go inside braces. Move an if above the return, or use a ternary.
+- JSX is not HTML you can paste in. Converting a template means changing class, for, comments and self-closing tags.
+- Whitespace between JSX lines is collapsed, so `{' '}` is sometimes needed to keep a space between elements.
+- A component's name must be capitalised. Lowercase means an HTML tag, so `<jobCard />` renders an unknown element rather than your component.
+
+## Takeaways
+
+- JSX compiles to function calls that produce plain objects. It is JavaScript, not markup.
+- One root element per return; a fragment when a wrapper node is unwanted.
+- Braces take expressions only.
+- Ternary for either/or, && for something-or-nothing, if above the return for branches.
+- className, htmlFor, camelCase events, closed tags, `{/* comments */}`.
+- Inline styles take an object of camelCase properties.

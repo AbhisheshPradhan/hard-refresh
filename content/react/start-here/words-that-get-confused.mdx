@@ -1,0 +1,122 @@
+---
+title: "Words that get confused"
+summary: "Read this once before Chapter 1, and again if a later chapter stops making sense."
+order: 1
+prerequisites: []
+tags: []
+updated: "2026-09-08"
+---
+
+React's vocabulary contains several pairs of terms that sound interchangeable and are not. Most persistent confusion traces back to one of them, so it is worth three minutes now.
+
+## Render ≠ paint
+
+| Render | Paint |
+|---|---|
+| React calls your component function and collects what it returns. | The browser draws pixels on the screen. |
+
+A render can happen with no paint at all, if nothing changed or the render was discarded. *(chapter 8)*
+
+## Re-render ≠ DOM update
+
+| Re-render | DOM update |
+|---|---|
+| Your function runs again and React compares the result. | React writes a change to the actual page. |
+
+Most re-renders produce no DOM change. "Too many renders" is not automatically a performance problem. *(chapter 8, 9)*
+
+## Re-render ≠ remount
+
+| Re-render | Remount |
+|---|---|
+| Same instance, same state, function called again. | Old instance destroyed, new one created: state reset, effects re-run, focus lost. |
+
+**Symptom.** Focus lost, state resetting for no reason, effects firing on every keystroke — that trio means remounting, not re-rendering. *(chapter 6, 9)*
+
+## Virtual DOM ≠ fiber tree
+
+| Virtual DOM — the element tree | Fiber tree |
+|---|---|
+| Plain objects describing what the UI should be. Recreated every render and thrown away. | React's persistent workspace. One node per component instance, holding state, hooks and effects. |
+
+State survives because it lives on the fiber, not in the elements. *(chapter 9)*
+
+## Component ≠ element ≠ instance
+
+| Component | Element |
+|---|---|
+| The function you wrote: `JobCard`. | The object from `<JobCard job={job} />`, describing one use of it. |
+
+**Instance.** What React keeps on screen for that element, holding its state. One component, many elements, one instance per element rendered. *(chapter 3)*
+
+## State ≠ ref
+
+| State | Ref |
+|---|---|
+| Changing it re-renders. For anything the user sees. | Changing it does nothing. For values only the code needs, and DOM nodes. |
+
+If it appears in the returned JSX, it is state. *(chapter 4, 12)*
+
+## Props ≠ state
+
+| Props | State |
+|---|---|
+| Given from outside, read-only in the component. | Owned by the component, changed through its setter. |
+
+Props changing is a consequence of the parent rendering, never a cause of the child rendering. *(chapter 3, 4)*
+
+## Mount ≠ commit
+
+| Mount | Commit |
+|---|---|
+| A component appearing for the first time. | The phase where React writes changes to the DOM — on every update, not only the first. A mount happens during a commit; most commits are not mounts. |
+
+*Chapter 8.*
+
+## Controlled ≠ uncontrolled
+
+| Controlled | Uncontrolled |
+|---|---|
+| The value comes from state; the parent decides what it is. | The component or the DOM keeps its own value; you read it when you need it. |
+
+*Chapter 7, 24.*
+
+## Client state ≠ server state
+
+| Client state | Server state |
+|---|---|
+| Owned by the app: what is open, what is selected, an unsubmitted form. | A copy of data owned elsewhere, which can go stale without anything happening in the browser. |
+
+The second is a cache, and needs caching tools rather than a store. *(chapter 15, 16)*
+
+## Suspense ≠ error boundary
+
+| Suspense | Error boundary |
+|---|---|
+| What to show while something is not ready yet. | What to show when something failed and will not arrive. |
+
+Separate mechanisms. A component that suspends and then fails needs both. *(chapter 18, 19)*
+
+## Reconciliation ≠ rendering
+
+| Rendering | Reconciliation |
+|---|---|
+| Calling components to produce elements. | Matching those elements against existing fibers to decide what to reuse, update or destroy. |
+
+*Chapter 9.*
+
+## Declarative ≠ imperative
+
+| Declarative | Imperative |
+|---|---|
+| You describe what the screen should contain for the current state. | You write the sequence of operations that changes the screen. |
+
+React does the imperative part for you; it does not decide what the UI should be. *(chapter 1)*
+
+## Library ≠ framework
+
+| React, a library | Angular, a framework |
+|---|---|
+| Rendering and state. Routing, data fetching and app-wide state come from elsewhere. | Routing, HTTP and state management included. |
+
+Next.js, Remix, Gatsby and Astro are built on React, not alternatives to it. *(chapter 1)*

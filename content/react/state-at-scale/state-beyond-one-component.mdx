@@ -1,0 +1,365 @@
+---
+title: "State beyond one component"
+summary: "Where a value should live, how to move it, and what Context costs."
+order: 14
+prerequisites: ["react/how-react-works/reconciliation-fiber-and-re-renders", "react/effects-and-refs/useeffect"]
+tags: []
+updated: "2026-09-04"
+---
+
+State placement is a design decision with consequences you can feel. Too high and unrelated components re-render on every keystroke. Too low and the value has to be threaded through components that do not use it. Duplicated and the two copies drift apart.
+
+## Colocation: the default
+
+Keep state in the component that uses it, and no higher. A job card's expanded flag lives in the job card. A filter panel's open flag lives in the filter panel.
+
+Colocation is the default because it is the only placement that cannot cause a problem elsewhere. Everything below is a deliberate departure from it.
+
+## Lifting state up
+
+When two components need the same value, it moves to their closest common parent, and comes back down as props.
+
+```jsx
+const JobsPage = () => {
+  const [type, setType] = useState('All');
+
+  return (
+    <>
+      <JobFilters type={type} onChange={setType} />
+      <JobList type={type} />
+    </>
+  );
+};
+```
+
+The filter panel no longer owns the value; it receives it and a function to change it. This is the same downward-function pattern from chapter 3: props flow down, and a callback lets data travel up.
+
+## Moving state down
+
+The opposite problem. A value sits in a large component but only a small part of it cares.
+
+```jsx
+// every keystroke re-renders JobsPage, and therefore the whole list
+const JobsPage = () => {
+  const [query, setQuery] = useState('');
+
+  return (
+    <>
+      <input value={query} onChange={(e) => { setQuery(e.target.value); }} />
+      <ExpensiveJobList />
+    </>
+  );
+};
+```
+
+If the list does not use `query`, the state does not belong here. Push it into a smaller component and the re-render is contained.
+
+```jsx
+const SearchBox = () => {
+  const [query, setQuery] = useState('');
+  return <input value={query} onChange={(e) => { setQuery(e.target.value); }} />;
+};
+
+const JobsPage = () => {
+  return (
+    <>
+      <SearchBox />
+      <ExpensiveJobList />
+    </>
+  );
+};
+```
+
+## Moving content up
+
+Sometimes the state genuinely has to stay where it is, but the expensive subtree does not depend on it. Elements created by a *parent* and passed as `children` are not recreated when the component holding the state re-renders, so React can reuse them.
+
+The mechanism is worth knowing, because it looks like magic otherwise. `children` is an ordinary prop, and the element object sitting in it was created by the outer component — which did not re-render, because its state did not change. So when the stateful component renders again, React arrives at that slot and finds the identical element reference it saw last time. Referentially equal props, no pending state, no context change: it bails out and reuses the fibers for the whole subtree (see 9). No memoization is involved anywhere, which is why this keeps working when someone later edits the code without knowing the trick is there.
+
+```jsx
+const FilterPanel = ({ children }) => {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div>
+      <button onClick={() => { setOpen((o) => !o); }}>Filters</button>
+      {open && <Filters />}
+      {children}
+    </div>
+  );
+};
+
+// JobList is created by JobsPage, so toggling the panel does not re-render it
+<FilterPanel>
+  <JobList jobs={jobs} />
+</FilterPanel>
+```
+
+<Figure caption="A re-render fix that needs no memo and no dependency arrays.">
+<svg viewBox="0 0 740 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="When the expensive list is created inside the stateful component it re-renders; when it is passed in as children it does not.">
+  <g font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="currentColor" text-anchor="middle">
+    <text x="175" y="24">list created inside</text>
+    <text x="565" y="24">list passed as children</text>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2">
+    <rect x="60" y="44" width="230" height="30"/>
+    <rect x="450" y="44" width="230" height="30"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="3">
+    <rect x="60" y="104" width="230" height="30"/>
+    <rect x="90" y="164" width="200" height="30"/>
+    <rect x="450" y="104" width="230" height="30"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="5 4">
+    <rect x="480" y="164" width="200" height="30"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2">
+    
+<path d="M175 134 V162"/>
+    <path d="M565 74 V102"/><path d="M565 134 V162"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" fill="currentColor" text-anchor="middle">
+    <text x="175" y="63">JobsPage</text>
+    <text x="175" y="123">FilterPanel — state changes</text>
+    <text x="190" y="183">JobList — re-renders</text>
+    <text x="565" y="63">JobsPage — creates JobList</text>
+    <text x="565" y="123">FilterPanel — state changes</text>
+    <text x="580" y="183">JobList — reused</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" font-style="italic" fill="currentColor" text-anchor="middle">
+    <text x="370" y="228">the same element object is handed back down, so there is nothing to re-render</text>
+  </g>
+</svg>
+</Figure>
+
+## Derived values are not state
+
+```jsx
+// two sources of truth that can disagree
+const [jobs, setJobs] = useState([]);
+const [count, setCount] = useState(0);
+
+// one source of truth
+const [jobs, setJobs] = useState([]);
+const count = jobs.length;
+const remote = jobs.filter((job) => job.isRemote);
+```
+
+If a value can be calculated from what you already have, calculate it during render. Storing it means keeping it in step by hand, which is where inconsistency comes from (see 11).
+
+## useReducer
+
+When updates get complicated — several fields changing together, transitions that depend on the current state — scattered setters stop being readable. A reducer collects them into one function.
+
+```jsx
+const jobsReducer = (state, action) => {
+  switch (action.type) {
+    case 'added': {
+      return [...state, action.job];
+    }
+    case 'deleted': {
+      return state.filter((job) => job.id !== action.id);
+    }
+    case 'updated': {
+      return state.map((job) => (
+        job.id === action.job.id ? action.job : job
+      ));
+    }
+    default: {
+      throw new Error(`Unknown action: ${action.type}`);
+    }
+  }
+};
+
+const [jobs, dispatch] = useReducer(jobsReducer, []);
+
+dispatch({ type: 'deleted', id: job.id });
+```
+
+A reducer is a pure function: current state and an action in, next state out. No fetching, no mutation, no randomness. That purity is what makes it testable without React, and it is what the next section depends on.
+
+### withHistory: undo and redo
+
+Because a reducer is just a function, it can be wrapped by another function that adds behaviour. Here the state becomes three parts — what came before, what is now, and what was undone.
+
+<Figure caption="Three stacks and four moves. The last line is the one people forget.">
+<svg viewBox="0 0 740 210" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Undo moves the present into future and pops from past; redo moves the present into past and pops from future; a new action clears future.">
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="60" y="60" width="160" height="44"/>
+    <rect x="290" y="60" width="160" height="44"/>
+    <rect x="520" y="60" width="160" height="44"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="currentColor" text-anchor="middle">
+    <text x="140" y="88">past</text>
+    <text x="370" y="88">present</text>
+    <text x="600" y="88">future</text>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2">
+    
+<path d="M452 74 H516"/>
+    <path d="M224 92 H286"/>
+    <path d="M518 92 H454"/>
+  </g>
+  <g fill="currentColor">
+    <path d="M224 74 l8 -4 v8 z"/><path d="M518 74 l-8 -4 v8 z"/>
+    <path d="M288 92 l-8 -4 v8 z"/><path d="M452 92 l8 -4 v8 z"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="10.5" font-style="italic" fill="currentColor" text-anchor="middle">
+    <text x="256" y="42">undo pops</text>
+    <text x="485" y="42">undo pushes</text>
+    <text x="256" y="128">redo pushes</text>
+    <text x="485" y="128">redo pops</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="currentColor" text-anchor="middle">
+    <text x="370" y="178">any other action pushes present onto past and empties future</text>
+  </g>
+</svg>
+</Figure>
+
+```jsx
+const withHistory = (reducer) => {
+  return (state, action) => {
+    const { past, present, future } = state;
+
+    if (action.type === 'UNDO') {
+      return {
+        past: past.slice(0, -1),
+        present: past[past.length - 1],
+        future: [present, ...future],
+      };
+    }
+
+    if (action.type === 'REDO') {
+      return {
+        past: [...past, present],
+        present: future[0],
+        future: future.slice(1),
+      };
+    }
+
+    const next = reducer(present, action);
+
+    if (next === present) {
+      return state;   // nothing changed, so no history entry
+    }
+
+    return {
+      past: [...past, present],
+      present: next,
+      future: [],   // a new action abandons the redo branch
+    };
+  };
+};
+
+const [state, dispatch] = useReducer(withHistory(jobsReducer), {
+  past: [],
+  present: [],
+  future: [],
+});
+
+<button onClick={() => { dispatch({ type: 'UNDO' }); }} disabled={state.past.length === 0}>
+  Undo
+</button>
+```
+
+Three things make this work. Every past state is a distinct object, because the inner reducer never mutates — this is the payoff for the rule in chapter 10. Wrapping a function to add behaviour is the same idea as wrapping a component, which is where higher-order components come from (see 24). And clearing `future` on a new action is what stops redo restoring a state from a branch that no longer exists.
+
+In practice you would also cap the history length, exclude actions that should not be undoable, and group rapid changes so typing does not create one entry per character.
+
+## Context
+
+Lifting works until the value has to travel through five components that do not use it. Context lets a subtree read a value directly.
+
+```jsx
+const AuthContext = createContext(null);
+
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+
+  return (
+    <AuthContext.Provider value={{ user, setUser }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+// consume through a hook, so callers never touch the context object
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+
+  if (context === null) {
+    throw new Error('useAuth must be used inside AuthProvider');
+  }
+
+  return context;
+};
+```
+
+Wrapping `useContext` in a named hook is worth doing every time: the error message turns a confusing `null` crash into a clear one, and consumers import one function instead of two things.
+
+### What Context costs
+
+Every component consuming a context re-renders when the context value changes — regardless of which part of the value it uses, and regardless of `memo`. Context does not subscribe to slices.
+
+```jsx
+// one context, two very different change frequencies
+<AppContext.Provider value={{ user, theme, query, setQuery }}>
+```
+
+Typing in the search box now re-renders every component that reads `user` or `theme`. Split by how often values change:
+
+```jsx
+<AuthProvider>      // changes on login and logout
+  <ThemeProvider>   // changes rarely
+    <SearchProvider> // changes constantly — keep its consumers small
+      {children}
+    </SearchProvider>
+  </ThemeProvider>
+</AuthProvider>
+```
+
+There is a counter-pressure. Fifteen nested providers is its own problem, and splitting a context that rarely changes buys nothing. Split when values have genuinely different change frequencies, not on principle.
+
+One more detail: an inline object as the provider value is a new identity on every render, so consumers re-render even when nothing changed. Memoize it when the provider re-renders for unrelated reasons.
+
+```jsx
+const value = useMemo(() => {
+  return { user, setUser };
+}, [user]);
+```
+
+### What belongs in context
+
+| Good fit | Poor fit |
+|---|---|
+| Authenticated user | Form field values |
+| Theme | Anything one component uses |
+| Language and locale | Server data — that is a cache (see 16) |
+| Feature flags | High-frequency values with many consumers |
+
+  
+### What happens when
+
+  
+A single `AppContext` holds `{ user, theme, notifications }`, and notifications arrive every few seconds. What does the user experience?
+
+  
+Every consumer re-renders on every notification, including components that only read the theme. Nothing looks broken, but the app becomes sluggish under load and profiling shows renders with no visible cause. Splitting notifications into their own provider confines the churn to the components that display them.
+
+## Gotchas
+
+- Context consumers re-render on any change to the value, regardless of memo on components in between.
+- An inline provider value is a new object every render. Memoize it if the provider re-renders for other reasons.
+- Context is not a store. It passes a value down; it does not manage or optimise it.
+- Reducers must stay pure. No fetching, no mutation, no Date.now() — otherwise undo and testing both break.
+- Lifting state too far is the most common overcorrection. Lift to the closest common parent, not to the top.
+- Prop drilling through two levels is fine. Reach for Context at four or five, or when the middle components are generic.
+
+## Takeaways
+
+- Colocate by default; move state only when something forces you to.
+- Lift to the closest common parent; move down to contain re-renders.
+- Passing an expensive subtree as children keeps it out of a stateful component's re-render.
+- Derived values are computed, not stored.
+- A reducer is a pure function, which is why it can be wrapped — withHistory gets undo for free.
+- Context removes drilling and re-renders every consumer; split by change frequency, not on principle.

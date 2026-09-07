@@ -1,0 +1,1595 @@
+[
+	{
+		"id": "1.3",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/what-react-is",
+		"kind": "explain",
+		"question": "A colleague says \"we use Next.js, not React.\" What is wrong with that sentence?",
+		"codeContext": null,
+		"modelAnswer": "Next.js *is* React, with server rendering, routing and build tooling wrapped around it. Its components are React components using the same props, state and hooks. The sentence treats a meta-framework as a competitor to the library it is built on.",
+		"related": ["react/foundations/what-react-is"]
+	},
+	{
+		"id": "1.4",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/what-react-is",
+		"kind": "explain",
+		"question": "Explain to someone who only writes vanilla JavaScript why a large dynamic interface is hard to maintain by hand, and what React changes about it.",
+		"codeContext": null,
+		"modelAnswer": "By hand, each piece of data has to be manually pushed to every place that displays it. Add a fourth display site and there is now a fourth update to remember in every function that changes that data. The bugs are consistency bugs, and they multiply as the interface grows.\n\n    \nReact makes the screen derived. You write what the UI should be for the current data; React works out the DOM changes. New display sites cost nothing to keep in sync because nothing is being kept in sync — it is recalculated.",
+		"related": ["react/foundations/what-react-is"]
+	},
+	{
+		"id": "1.6",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/what-react-is",
+		"kind": "rapid",
+		"question": "In under a minute: give the strongest argument for choosing React over Vue or Svelte, and the strongest argument against.",
+		"codeContext": null,
+		"modelAnswer": "**For:** the largest ecosystem and job market, the widest library support, and React Native and the meta-frameworks all reusing the same knowledge. On a team, hiring and answers are easier to find.\n\n    \n**Against:** more ceremony for the same result. Vue and Svelte handle reactivity for you where React asks you to reason about re-renders, dependency arrays and memoization. If you are choosing for a personal project or a small product rather than for a career, that is a real advantage.\n\n    \nA good answer names the trade rather than declaring a winner, and notes that the concepts transfer either way.",
+		"related": ["react/foundations/what-react-is"]
+	},
+	{
+		"id": "2.3",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/jsx",
+		"kind": "diagnose",
+		"question": "The page shows a stray 0 above the listings when a search returns nothing. Explain the cause and fix it.",
+		"codeContext": "{results.length && <p>{results.length} matches</p>}",
+		"modelAnswer": "`&&` returns its left operand when that operand is falsy. With no results, `results.length` is `0`, so the expression evaluates to `0` — and React renders numbers.\n\n```jsx\n{results.length > 0 && <p>{results.length} matches</p>}\n```\n\n    \nThe comparison yields `false`, which React skips. A ternary with `null` works too, and is clearer when there is also an empty state to show.",
+		"related": ["react/foundations/jsx"]
+	},
+	{
+		"id": "2.4",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/jsx",
+		"kind": "diagnose",
+		"question": "Four things must change before this compiles. Rewrite it.",
+		"codeContext": "<!-- the filter panel -->\n<div class=\"panel\">\n  <label for=\"type\">Type</label>\n  <input id=\"type\" onchange=\"handleChange()\">\n</div>",
+		"modelAnswer": "```jsx\n{/* the filter panel */}\n<div className=\"panel\">\n  <label htmlFor=\"type\">Type</label>\n  <input id=\"type\" onChange={handleChange} />\n</div>\n```\n\n    \nThe comment becomes a JSX comment, `class` becomes `className`, `for` becomes `htmlFor`, `onchange` becomes `onChange` taking a function rather than a string, and the input closes itself.",
+		"related": ["react/foundations/jsx"]
+	},
+	{
+		"id": "2.5",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/jsx",
+		"kind": "explain",
+		"question": "Why does style take two sets of braces, when className takes one?",
+		"codeContext": null,
+		"modelAnswer": "`className` takes a string, so quotes are enough. `style` takes an object, so you need braces to enter JavaScript and braces again for the object literal. The properties are camelCase because they are JavaScript identifiers, not CSS text.",
+		"related": ["react/foundations/jsx"]
+	},
+	{
+		"id": "2.6",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/jsx",
+		"kind": "explain",
+		"question": "When is a fragment the right choice over a <div>?",
+		"codeContext": null,
+		"modelAnswer": "When the wrapper would be meaningless in the output, or actively harmful — inside a CSS grid or flex container, where the wrapper rather than your content becomes the item, and inside tables and lists, where an extra `div` is invalid.",
+		"related": ["react/foundations/jsx"]
+	},
+	{
+		"id": "2.7",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/jsx",
+		"kind": "diagnose",
+		"question": "This renders nothing and logs no error. Why?",
+		"codeContext": "const jobCard = ({ job }) => <article>{job.title}</article>;\n\nconst JobList = ({ jobs }) => (\n  <div>\n    {jobs.map((job) => (\n      <jobCard key={job.id} job={job} />\n    ))}\n  </div>\n);",
+		"modelAnswer": "`jobCard` is lowercase, so JSX treats it as a built-in HTML tag rather than a component reference. The browser gets an unknown element with a `job` attribute it cannot interpret, renders nothing visible, and nothing throws.\n\n    \nCapitalise it. The rule is mechanical: lowercase means a DOM tag, capitalised means a variable in scope, which is why components are always capitalised and why a typo in the case fails silently rather than loudly.",
+		"related": ["react/foundations/jsx"]
+	},
+	{
+		"id": "3.3",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/components-and-props",
+		"kind": "explain",
+		"question": "Six job cards are on screen. How many components, elements and instances are there?",
+		"codeContext": null,
+		"modelAnswer": "One component — the `JobCard` function. Six elements per render, each a fresh object describing one card; they are recreated and discarded on every render. Six instances, one per card on screen, each holding its own state and persisting between renders (see 9).",
+		"related": [
+			"react/foundations/components-and-props",
+			"react/how-react-works/reconciliation-fiber-and-re-renders"
+		]
+	},
+	{
+		"id": "3.4",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/components-and-props",
+		"kind": "diagnose",
+		"question": "This works and it is still wrong. Explain, then fix it.",
+		"codeContext": "const JobCard = ({ job }) => {\n  job.title = job.title.trim();\n\n  return <h3>{job.title}</h3>;\n};",
+		"modelAnswer": "The component mutates a prop. The object belongs to the parent, and other components may be holding the same one, so this changes data elsewhere in the app without any render being scheduled to reflect it. It also makes the component impure, which matters more than it sounds (see 10).\n\n```jsx\nconst JobCard = ({ job }) => {\n  const title = job.title.trim();\n\n  return <h3>{title}</h3>;\n};\n```\n\n    \nDerive, never mutate. If the trimming should apply everywhere, do it once where the data enters the app rather than in a display component.",
+		"related": [
+			"react/foundations/components-and-props",
+			"react/how-react-works/the-rules-of-react"
+		]
+	},
+	{
+		"id": "3.5",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/components-and-props",
+		"kind": "diagnose",
+		"question": "Rewrite Panel so the caller supplies the contents, and show one use of it.",
+		"codeContext": "const Panel = ({ title, body }) => {\n  return (\n    <div className=\"panel\">\n      <h2>{title}</h2>\n      <p>{body}</p>\n    </div>\n  );\n};",
+		"modelAnswer": "```jsx\nconst Panel = ({ title, children }) => {\n  return (\n    <div className=\"panel\">\n      <h2>{title}</h2>\n      {children}\n    </div>\n  );\n};\n\n<Panel title=\"Company\">\n  <p>{job.company.description}</p>\n  <a href={`mailto:${job.company.contactEmail}`}>Email</a>\n</Panel>\n```\n\n    \nThe original could only ever hold one paragraph of text. With `children` the caller decides, and `Panel` keeps owning the frame.",
+		"related": ["react/foundations/components-and-props"]
+	},
+	{
+		"id": "3.6",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/components-and-props",
+		"kind": "explain",
+		"question": "A child needs to tell its parent that a job was deleted. Props only flow downward. How is this done?",
+		"codeContext": null,
+		"modelAnswer": "The parent passes a function down as a prop, and the child calls it: `<JobCard onDelete={deleteJob} />`, then `onDelete(job.id)` inside. Data effectively moves up while the prop moves down.\n\n    \nIt reads oddly at first, but it keeps the behaviour where the state lives — the parent owns the list, so the parent owns deleting from it.",
+		"related": ["react/foundations/components-and-props"]
+	},
+	{
+		"id": "3.7",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/components-and-props",
+		"kind": "rapid",
+		"question": "In under a minute: why is composition preferred over a component with many configuration props?",
+		"codeContext": null,
+		"modelAnswer": "A component with many configuration props has to anticipate every use, so each new requirement adds another flag, and the component grows conditionals it cannot remove. Composition pushes those decisions to the caller: the component owns the frame and the behaviour, the caller supplies the contents.\n\n    \nThe practical test is whether new requirements mean editing the component or just calling it differently. If it is always the former, the props are doing what children should (see 24).",
+		"related": ["react/foundations/components-and-props", "react/production/component-patterns"]
+	},
+	{
+		"id": "4.3",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/state-with-usestate",
+		"kind": "diagnose",
+		"question": "Adding a job leaves the list unchanged on screen. Explain why, then fix it.",
+		"codeContext": "const addJob = (newJob) => {\n  jobs.push(newJob);\n  setJobs(jobs);\n};",
+		"modelAnswer": "`push` mutates the existing array, so `setJobs` receives the same reference React already has. The comparison finds no change and React bails out — no render.\n\n```jsx\nconst addJob = (newJob) => {\n  setJobs([...jobs, newJob]);\n};\n```\n\n    \nNote the failure is silent, and the data really did change. The screen catches up later when something else renders, which is why mutation bugs are so often reported as \"sometimes it doesn't update\".",
+		"related": ["react/foundations/state-with-usestate"]
+	},
+	{
+		"id": "4.4",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/state-with-usestate",
+		"kind": "diagnose",
+		"question": "The counter increases by one per click, not three. Explain, then make it increase by three.",
+		"codeContext": "const onClick = () => {\n  setCount(count + 1);\n  setCount(count + 1);\n  setCount(count + 1);\n};",
+		"modelAnswer": "All three calls read `count` from the same render, where it is the same number. Each schedules \"set it to that number plus one\", so the last one wins and the total effect is +1.\n\n```jsx\nconst onClick = () => {\n  setCount((c) => c + 1);\n  setCount((c) => c + 1);\n  setCount((c) => c + 1);\n};\n```\n\n    \nThe function form receives the result of the previous update rather than the value captured at render time, so the three compose. Rule of thumb: if the new value mentions the old one, use the function form.",
+		"related": ["react/foundations/state-with-usestate"]
+	},
+	{
+		"id": "4.5",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/state-with-usestate",
+		"kind": "diagnose",
+		"question": "What is the difference between these two, and when does it matter?",
+		"codeContext": "const [filters, setFilters] = useState(readSavedFilters());\nconst [filters, setFilters] = useState(() => readSavedFilters());",
+		"modelAnswer": "Both produce the same initial state. The first calls `readSavedFilters()` on every render and throws the result away after the first; the second passes a function React calls once.\n\n    \nIt matters when the work is expensive — parsing `localStorage`, building a large structure — or when it has side effects. For a cheap literal it makes no difference and the plain form is clearer.",
+		"related": ["react/foundations/state-with-usestate"]
+	},
+	{
+		"id": "4.6",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/state-with-usestate",
+		"kind": "diagnose",
+		"question": "Editing one field wipes the others. Find the cause and fix it.",
+		"codeContext": "const [form, setForm] = useState({ title: '', type: 'Full-Time', salary: '' });\n\nconst onTitleChange = (e) => {\n  setForm({ title: e.target.value });\n};",
+		"modelAnswer": "`setForm` replaces the whole object, and the new one has only `title`. The other fields are not merged in — React does not merge state objects, unlike the old class-component `setState`.\n\n```jsx\nconst onTitleChange = (e) => {\n  setForm({ ...form, title: e.target.value });\n};\n```\n\n    \nWith several fields, consider one `useState` per field instead: no spreading, and a change to one cannot disturb another (see 7).",
+		"related": ["react/foundations/state-with-usestate", "react/foundations/forms"]
+	},
+	{
+		"id": "4.7",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/state-with-usestate",
+		"kind": "explain",
+		"question": "Two job cards are on screen. Expanding one expands both. What is the most likely cause?",
+		"codeContext": null,
+		"modelAnswer": "The state is not inside the card. It lives in the parent and is passed to both, so there is one value driving two cards. Each card should own its own `showFull`.\n\n    \nThe reverse mistake — state in each card when the two need to agree, such as only one panel open at a time — is fixed by lifting it up instead (see 14). Deciding which of the two you have is the actual skill.",
+		"related": [
+			"react/foundations/state-with-usestate",
+			"react/state-at-scale/state-beyond-one-component"
+		]
+	},
+	{
+		"id": "4.8",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/state-with-usestate",
+		"kind": "rapid",
+		"question": "In under a minute: why does React require new objects rather than letting you mutate state in place?",
+		"codeContext": null,
+		"modelAnswer": "Because React detects change by comparing references, not by inspecting contents. A mutated object is the same object, so there is nothing to detect. Comparing references is O(1); deep-comparing every value on every render would be far more expensive than the rendering itself.\n\n    \nReplacing rather than mutating also makes the previous value still valid, which is what allows features like undo and time-travel debugging to exist at all (see 14).",
+		"related": [
+			"react/foundations/state-with-usestate",
+			"react/state-at-scale/state-beyond-one-component"
+		]
+	},
+	{
+		"id": "4.9",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/state-with-usestate",
+		"kind": "explain",
+		"question": "A handler calls setCount(count + 1), then setCount((c) => c + 1), then setCount(count + 1). count is 5. What is it after the render, and why?",
+		"codeContext": null,
+		"modelAnswer": "**6.** Three entries go on the queue, and React walks them from the last committed value, 5.\n\n```jsx\nqueue:   [ 6 ]        [ (c) => c + 1 ]   [ 6 ]\nwalk:  5 → 6            6 → 7            7 → 6\n```\n\n    \nThe first entry is the value 6, because `count` was 5 when the handler ran. The function entry receives 6 and returns 7. The third entry is also the value 6 — computed from the same captured `count` — and it ignores the 7 entirely, because a value update discards whatever it is handed.\n\n    \nThe lesson is not the number. It is that mixing the two forms in one handler makes the result depend on ordering in a way nobody will reconstruct while reading it, which is why the functional form is the default whenever the next value depends on the current one.",
+		"related": ["react/foundations/state-with-usestate"]
+	},
+	{
+		"id": "5.3",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/events-and-conditional-rendering",
+		"kind": "explain",
+		"question": "Clicking Save inside a clickable card also navigates to the job. Explain the cause and give two fixes.",
+		"codeContext": null,
+		"modelAnswer": "**Cause:** the click bubbles from the button up to the card, so both handlers run.\n\n    \n**Fix one — stop propagation** in the button's handler. Direct, and it works.\n\n```jsx\n<button onClick={(e) => {\n  e.stopPropagation();\n  onSave(job.id);\n}}>\n```\n\n    \n**Fix two — restructure so the conflict does not exist.** Make the title a link rather than making the whole card clickable. Nested interactive elements are also an accessibility problem: a button inside a clickable region is confusing to navigate with a keyboard or screen reader, and stopping propagation hides that rather than solving it (see 25).\n\n    \nPrefer the second when you own the markup. Use the first when the outer handler is not yours to change.",
+		"related": [
+			"react/foundations/events-and-conditional-rendering",
+			"react/production/portals-modals-and-accessibility"
+		]
+	},
+	{
+		"id": "5.4",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/events-and-conditional-rendering",
+		"kind": "diagnose",
+		"question": "Rewrite this so it is readable.",
+		"codeContext": "return loading ? <Spinner /> : error ? <ErrorMessage /> : jobs.length === 0 ? <EmptyState /> : <JobList jobs={jobs} />;",
+		"modelAnswer": "```jsx\nif (loading) {\n  return <Spinner />;\n}\n\nif (error) {\n  return <ErrorMessage />;\n}\n\nif (jobs.length === 0) {\n  return <EmptyState />;\n}\n\nreturn <JobList jobs={jobs} />;\n```\n\n    \nEach condition is now readable on its own line, adding a fourth state costs one block, and the main path is last and unindented. Nested ternaries are correct and hostile to read past two levels.",
+		"related": ["react/foundations/events-and-conditional-rendering"]
+	},
+	{
+		"id": "5.5",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/events-and-conditional-rendering",
+		"kind": "explain",
+		"question": "The form reloads the page when submitted. What is missing, and why does that matter in a React app?",
+		"codeContext": null,
+		"modelAnswer": "`e.preventDefault()` in the submit handler. Without it the browser performs a native form submission and reloads the document, which in a single-page app throws away the entire application: all state, the loaded bundle, and any work in progress. The user sees a flash and an apparently reset page.",
+		"related": ["react/foundations/events-and-conditional-rendering"]
+	},
+	{
+		"id": "5.6",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/events-and-conditional-rendering",
+		"kind": "explain",
+		"question": "Why does React attach one listener at the root rather than one per element?",
+		"codeContext": null,
+		"modelAnswer": "One listener per event type is far cheaper than thousands of individual listeners, and it means React can attach and detach components without touching the DOM's listener set. It also lets React normalise events across browsers and run them through its own scheduling, so an event can be prioritised as urgent work (see 9).\n\n    \nThe visible consequence is that propagation follows your component tree, not the DOM tree — which is how a portal rendered at the end of `body` still bubbles to the component that rendered it (see 25).",
+		"related": [
+			"react/foundations/events-and-conditional-rendering",
+			"react/how-react-works/reconciliation-fiber-and-re-renders",
+			"react/production/portals-modals-and-accessibility"
+		]
+	},
+	{
+		"id": "5.7",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/events-and-conditional-rendering",
+		"kind": "rapid",
+		"question": "In under a minute: when do you reach for && instead of a ternary, and what is the trap?",
+		"codeContext": null,
+		"modelAnswer": "Use `&&` when the alternative is nothing at all — a badge, a warning, an optional row. Use a ternary when there are genuinely two things to show.\n\n    \nThe trap is that `&&` returns its left operand when that operand is falsy, and React renders numbers. `{items.length && …}` prints a bare `0` on an empty list. Guard with a comparison instead (see 2).",
+		"related": ["react/foundations/events-and-conditional-rendering", "react/foundations/jsx"]
+	},
+	{
+		"id": "6.3",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/lists-and-keys",
+		"kind": "diagnose",
+		"question": "Checking a box, then deleting an earlier row, leaves the wrong row checked. Explain the mechanism, then fix it.",
+		"codeContext": "{jobs.map((job, index) => (\n  <JobRow key={index} job={job} />\n))}",
+		"modelAnswer": "With index keys the identity of each row is its position. Deleting an earlier row shifts every later row up by one, so a row inherits the instance — and therefore the state — that belonged to the position it moved into. The checkbox state stayed with slot 2 while the job that was in slot 2 moved to slot 1.\n\n```jsx\n{jobs.map((job) => (\n  <JobRow key={job.id} job={job} />\n))}\n```\n\n    \nThe symptom is worth memorising: state appearing on the wrong row after a delete, sort or filter is almost always index keys.",
+		"related": ["react/foundations/lists-and-keys"]
+	},
+	{
+		"id": "6.4",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/lists-and-keys",
+		"kind": "diagnose",
+		"question": "Two problems here. Find both.",
+		"codeContext": "<ul>\n  {jobs.map((job) => (\n    <li>\n      <h3 key={job.id}>{job.title}</h3>\n      <p>{job.company.name}</p>\n    </li>\n  ))}\n</ul>",
+		"modelAnswer": "**1.** The key is on the `<h3>`, not on the `<li>` the callback returns. React still has no way to identify list items, so the warning stands and the matching is by position.\n\n    \n**2.** `job.company.name` throws if any job has no company. Use `job.company?.name` unless the shape is guaranteed.",
+		"related": ["react/foundations/lists-and-keys"]
+	},
+	{
+		"id": "6.5",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/lists-and-keys",
+		"kind": "explain",
+		"question": "Navigating from one job to another leaves the edit form showing the previous job's values. Give the key-based fix and say why it is preferred over an effect.",
+		"codeContext": null,
+		"modelAnswer": "```jsx\n<EditJobForm key={job.id} job={job} />\n```\n\n    \nChanging the key tells React this is a different component, so it unmounts the old form and mounts a new one, and every `useState(job.field)` initialises from the new job.\n\n    \nPreferred over an effect that calls setters when `job.id` changes because the effect version renders twice — once with the stale values, then again after the effect corrects them — so the user can see the previous job's data flash. The key version never renders the wrong state at all (see 11).",
+		"related": ["react/foundations/lists-and-keys", "react/effects-and-refs/useeffect"]
+	},
+	{
+		"id": "6.6",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/lists-and-keys",
+		"kind": "explain",
+		"question": "Someone uses key={Math.random()} to silence the warning. What does that actually do?",
+		"codeContext": null,
+		"modelAnswer": "Every render produces new keys, so nothing ever matches. React destroys and recreates every item on every render: state resets, focus is lost, inputs clear mid-typing, effects re-run and the DOM is rebuilt.\n\n    \nIt removes the warning by making the situation the warning was about maximally bad. The warning exists because React cannot identify items; a random key confirms it never will.",
+		"related": ["react/foundations/lists-and-keys"]
+	},
+	{
+		"id": "6.7",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/lists-and-keys",
+		"kind": "rapid",
+		"question": "In under a minute: respond to \"adding keys made our list faster because it stops unnecessary re-renders\".",
+		"codeContext": null,
+		"modelAnswer": "Keys do not stop re-renders. When the parent re-renders, every child in the list re-renders whether keyed or not, unless the child is memoized.\n\n    \nWhat keys stop is *remounting*. Without stable keys, an item that moves is torn down and rebuilt — new DOM node, state reset, effects re-run — which is expensive and also incorrect. So keys do help, for a different reason than the one stated, and the distinction matters because the wrong model leads people to expect `memo`-like behaviour from them (see 9).",
+		"related": [
+			"react/foundations/lists-and-keys",
+			"react/how-react-works/reconciliation-fiber-and-re-renders"
+		]
+	},
+	{
+		"id": "7.3",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/forms",
+		"kind": "diagnose",
+		"question": "Typing in the title field clears the other fields. Explain and fix.",
+		"codeContext": "const [form, setForm] = useState({ title: '', salary: '', type: 'Full-Time' });\n\nconst onTitleChange = (e) => {\n  setForm({ title: e.target.value });\n};",
+		"modelAnswer": "`setForm` replaces the object rather than merging into it, so the new object has only `title`. React does not merge state objects — that was class-component `setState` behaviour.\n\n```jsx\nconst onTitleChange = (e) => {\n  setForm({ ...form, title: e.target.value });\n};\n```\n\n    \nWith many fields this spread has to appear in every handler, and one omission wipes data silently. One `useState` per field removes the failure mode entirely, which is why it is the better default until the form is large enough for a library.",
+		"related": ["react/foundations/forms"]
+	},
+	{
+		"id": "7.4",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/forms",
+		"kind": "diagnose",
+		"question": "Users occasionally create two identical jobs. The code works. What is missing?",
+		"codeContext": "const submitForm = async (e) => {\n  e.preventDefault();\n  await addJob(newJob);\n  navigate('/jobs');\n};\n\n<button>Add Job</button>",
+		"modelAnswer": "Nothing stops a second click while the request is in flight. The user clicks, sees no feedback, clicks again, and two jobs are created.\n\n```jsx\nconst [status, setStatus] = useState('idle');\n\nconst submitForm = async (e) => {\n  e.preventDefault();\n  setStatus('submitting');\n  await addJob(newJob);\n  navigate('/jobs');\n};\n\n<button disabled={status === 'submitting'}>\n  {status === 'submitting' ? 'Saving…' : 'Add Job'}\n</button>\n```\n\n    \nThe label change matters as much as the disabling: a button that goes dead with no explanation reads as broken. For operations that must never duplicate — payments especially — the server should also reject duplicates, since a disabled button is not a guarantee.",
+		"related": ["react/foundations/forms"]
+	},
+	{
+		"id": "7.5",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/forms",
+		"kind": "explain",
+		"question": "Why prefer one status string over isLoading, isSuccess and isError?",
+		"codeContext": null,
+		"modelAnswer": "Three booleans allow eight combinations, and only four are meaningful. Nothing prevents `isLoading` and `isSuccess` both being true after a badly ordered update, and every render then has to guard against states that should not exist.\n\n    \nA single `status` can only hold one value, so impossible states cannot be represented. It also reads better in the markup: one comparison instead of a chain of boolean logic. In TypeScript it becomes a union type and the compiler checks the branches for you (see 26).",
+		"related": ["react/foundations/forms", "react/production/typescript-with-react"]
+	},
+	{
+		"id": "7.6",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/forms",
+		"kind": "explain",
+		"question": "The console warns that an input is changing from uncontrolled to controlled. What causes that, and how is it fixed?",
+		"codeContext": null,
+		"modelAnswer": "The `value` prop started as `undefined` — usually from `useState()` with no argument, or from data that has not arrived yet — so React treated the input as uncontrolled. When the value later becomes a string, the input switches modes.\n\n    \nInitialise with an empty string, and when populating a form from fetched data either wait for the data before rendering the form or use `value={job.title ?? ''}`.",
+		"related": ["react/foundations/forms"]
+	},
+	{
+		"id": "7.7",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/forms",
+		"kind": "explain",
+		"question": "You are building a twenty-field job posting form with validation. Give two approaches and say when each wins.",
+		"codeContext": null,
+		"modelAnswer": "**Controlled state per field, by hand.** No dependency, complete control, and the value is available anywhere in the component for live validation or dependent fields. The cost is twenty state declarations and twenty handlers, and every keystroke re-renders the whole form.\n\n    \n**React Hook Form.** Keeps fields uncontrolled and subscribes to them individually, so typing in one field does not re-render the others — a real difference at twenty fields. Registration, validation rules and error state come built in. The cost is a dependency and a different mental model.\n\n    \n**Default:** hand-rolled up to about half a dozen simple fields, a library beyond that or as soon as validation rules get interesting. The tipping point is usually validation rather than field count.",
+		"related": ["react/foundations/forms"]
+	},
+	{
+		"id": "7.8",
+		"chapterId": "react/foundations",
+		"noteId": "react/foundations/forms",
+		"kind": "rapid",
+		"question": "In under a minute: when would you deliberately use an uncontrolled input?",
+		"codeContext": null,
+		"modelAnswer": "When nothing in the UI depends on the value until submission — a simple contact or search form with no live validation, no character count, no dependent fields, no button that enables as you type.\n\n    \nAlso for file inputs, which cannot be controlled, and in large forms where per-keystroke re-rendering is measurably slow. Read the values with `FormData` on submit and skip the state entirely.",
+		"related": ["react/foundations/forms"]
+	},
+	{
+		"id": "8.3",
+		"chapterId": "react/how-react-works",
+		"noteId": "react/how-react-works/the-render-cycle",
+		"kind": "explain",
+		"question": "A colleague says \"the component re-rendered, so the DOM was updated.\" What is wrong with that sentence?",
+		"codeContext": null,
+		"modelAnswer": "Re-rendering means React called the function again and compared the result with what is on screen. If nothing differs, no DOM operation happens at all. The two are separate steps, and conflating them leads people to blame React for slowness that is actually their own expensive render logic, or to assume the screen is up to date when the render was discarded.",
+		"related": ["react/how-react-works/the-render-cycle"]
+	},
+	{
+		"id": "8.4",
+		"chapterId": "react/how-react-works",
+		"noteId": "react/how-react-works/the-render-cycle",
+		"kind": "diagnose",
+		"question": "This runs without error and the title updates. Explain why it is still wrong, and what you would change.",
+		"codeContext": "const JobPage = ({ job }) => {\n  document.title = `${job.title} — React Jobs`;\n\n  return <h1>{job.title}</h1>;\n};",
+		"modelAnswer": "**Why it is wrong:** setting `document.title` is a side effect performed during render. It works today because this render happens to be committed, but React makes no promise about that. In StrictMode it runs twice; if the render is interrupted or discarded, the browser tab has been changed on behalf of a screen the user never saw.\n\n    \n**The change:** move it into an effect, so it runs after commit.\n\n```jsx\nuseEffect(() => {\n  document.title = `${job.title} — React Jobs`;\n}, [job.title]);\n```\n\n    \nThe deeper point is that \"it works\" is not evidence of correctness in render. Purity violations fail intermittently, under conditions you cannot reproduce on demand.",
+		"related": ["react/how-react-works/the-render-cycle"]
+	},
+	{
+		"id": "8.5",
+		"chapterId": "react/how-react-works",
+		"noteId": "react/how-react-works/the-render-cycle",
+		"kind": "diagnose",
+		"question": "The measurement is always one click behind. Name the cause, then give two ways to fix it and say when each is right.",
+		"codeContext": "const Panel = ({ items }) => {\n  const ref = useRef(null);\n  const [height, setHeight] = useState(0);\n\n  const measured = ref.current?.offsetHeight ?? 0;\n  setHeight(measured);\n\n  return <div ref={ref}>{items.length} items</div>;\n};",
+		"modelAnswer": "**Cause:** `ref.current` is read during render, when the DOM still shows the previous screen. On the first render it is `null`; afterwards it holds the node as it was before this render's changes were committed. Calling `setHeight` during render compounds the problem by scheduling another render from inside a render.\n\n    \n**Fix one — measure in an effect.** Right when the measurement is used for logic rather than for what is painted, such as reporting a size or deciding whether to fetch more.\n\n```jsx\nuseEffect(() => {\n  setHeight(ref.current.offsetHeight);\n}, [items]);\n```\n\n    \n**Fix two — `useLayoutEffect`.** Right when the measurement changes what the user sees, such as positioning a tooltip that would otherwise flash in the wrong place. It runs after commit but before paint, so there is no visible flicker. It blocks painting, so it is the more expensive option and not the default.\n\n    \n**The better question:** does this need to be state at all? If the height is only used to set a style on the same element, CSS often removes the measurement entirely. Measuring in JavaScript to reproduce something the layout engine already knows is a common and avoidable cost.",
+		"related": ["react/how-react-works/the-render-cycle"]
+	},
+	{
+		"id": "8.6",
+		"chapterId": "react/how-react-works",
+		"noteId": "react/how-react-works/the-render-cycle",
+		"kind": "explain",
+		"question": "Explain in under a minute why React is published as two packages rather than one.",
+		"codeContext": null,
+		"modelAnswer": "`react` is the API surface — `createElement`, context, the hook functions you import — and almost nothing else. It does not contain the reconciler: `useState` there forwards to whatever dispatcher the renderer has installed.\n\n    \nThe reconciler lives in `react-reconciler` and ships bundled inside each renderer, so the fiber and hook machinery is physically in `react-dom`. A renderer is that reconciler plus host operations — `react-dom` creates browser nodes, `react-native` creates native views.\n\n    \nThe practical consequences: React Native reuses the whole model and replaces only the host operations, `createRoot` lives in `react-dom` because mounting is a DOM concern, and the two packages are versioned together because the bundled reconciler must match the API it is called through.",
+		"related": ["react/how-react-works/the-render-cycle"]
+	},
+	{
+		"id": "8.7",
+		"chapterId": "react/how-react-works",
+		"noteId": "react/how-react-works/the-render-cycle",
+		"kind": "explain",
+		"question": "You add console.log('render') to a component and see it twice for one click in development, but once in the production build. What is happening, and should you fix it?",
+		"codeContext": null,
+		"modelAnswer": "StrictMode deliberately invokes your component twice in development. It is not a performance problem and it does not happen in production, so there is nothing to fix in the setup.\n\n    \nThere is something to check, though. The double render exists to expose impure components: if the second run produces a different result, or leaves something changed behind it, you have a side effect in render. Treat a surprising doubled log as a prompt to look at what else that function does, not as noise to silence (see 10).",
+		"related": [
+			"react/how-react-works/the-render-cycle",
+			"react/how-react-works/the-rules-of-react"
+		]
+	},
+	{
+		"id": "9.3",
+		"chapterId": "react/how-react-works",
+		"noteId": "react/how-react-works/reconciliation-fiber-and-re-renders",
+		"kind": "explain",
+		"question": "Why could the old recursive reconciler not be paused, and what change made pausing possible?",
+		"codeContext": null,
+		"modelAnswer": "The old reconciler rendered by recursion, so the work lived on the JavaScript call stack, and there is no way to suspend a call stack partway and resume it later. Once started, it ran to the end.\n\n    \nFiber moved the tree into a linked list of objects with `child`, `sibling` and `return` pointers, and React walks it in a loop. Loop state is data, so React can stop between two nodes, return the thread to the browser, and continue from the same place afterwards. The capability came from changing the data structure, not from anything the browser provides.",
+		"related": ["react/how-react-works/reconciliation-fiber-and-re-renders"]
+	},
+	{
+		"id": "9.4",
+		"chapterId": "react/how-react-works",
+		"noteId": "react/how-react-works/reconciliation-fiber-and-re-renders",
+		"kind": "diagnose",
+		"question": "The search input loses focus after every character typed. Find the cause and fix it.",
+		"codeContext": "const JobsPage = () => {\n  const [query, setQuery] = useState('');\n\n  const SearchBox = () => (\n    <input value={query} onChange={(e) => setQuery(e.target.value)} />\n  );\n\n  return (\n    <div>\n      <SearchBox />\n      <JobResults query={query} />\n    </div>\n  );\n};",
+		"modelAnswer": "`SearchBox` is defined inside `JobsPage`, so every keystroke re-renders `JobsPage` and creates a brand new `SearchBox` function. React compares element types by identity, sees a different type at that position, unmounts the old subtree and mounts a new one. A newly mounted input is not the focused one.\n\n```jsx\nconst SearchBox = ({ query, onChange }) => (\n  <input value={query} onChange={onChange} />\n);\n\nconst JobsPage = () => { … };   // SearchBox lives at module level\n```\n\n    \nWorth recognising the symptom pattern: lost focus, state resetting for no reason, effects re-running on every keystroke. That trio almost always means something is remounting rather than re-rendering.",
+		"related": ["react/how-react-works/reconciliation-fiber-and-re-renders"]
+	},
+	{
+		"id": "9.5",
+		"chapterId": "react/how-react-works",
+		"noteId": "react/how-react-works/reconciliation-fiber-and-re-renders",
+		"kind": "diagnose",
+		"question": "This is a real attempt at optimisation and it achieves nothing. Explain why, then give the quick fix and the fix you would prefer.",
+		"codeContext": "const JobListing = memo(({ job, onSelect }) => { … });\n\nconst JobListings = ({ jobs }) => {\n  const [count, setCount] = useState(0);\n\n  return jobs.map((job) => (\n    <JobListing\n      key={job.id}\n      job={job}\n      onSelect={() => {\n        console.log(job.id);\n      }}\n    />\n  ));\n};",
+		"modelAnswer": "**Why it achieves nothing:** `onSelect` is an inline arrow function, recreated for every item on every render of `JobListings`. `memo` compares props shallowly, so the function identity differs every time and the comparison always fails. Every listing re-renders, and you now also pay for the comparison.\n\n    \n**Quick fix:** stabilise the callback. Since it closes over `job`, that means either `useCallback` on a handler that takes the id as an argument, or moving the handler down into the child.\n\n```jsx\nconst handleSelect = useCallback((id) => {\n  console.log(id);\n}, []);\n// child calls onSelect(job.id)\n```\n\n    \n**The fix I would prefer:** ask why `memo` is here. The parent re-renders because of `count`, which the listings do not use. Moving that state down into the component that actually uses it, or moving the list up so it is passed as `children`, removes the re-render at its source and lets you delete both the `memo` and the `useCallback` (see 14, 22).\n\n    \n**When the quick fix is genuinely right:** when the parent must re-render for reasons the children share, and the children are expensive. Then `memo` plus a stable callback is correct, not a workaround. The rule is that memoization should be a deliberate answer to a measured cost, not a reflex.",
+		"related": [
+			"react/how-react-works/reconciliation-fiber-and-re-renders",
+			"react/state-at-scale/state-beyond-one-component",
+			"react/production/performance"
+		]
+	},
+	{
+		"id": "9.6",
+		"chapterId": "react/how-react-works",
+		"noteId": "react/how-react-works/reconciliation-fiber-and-re-renders",
+		"kind": "rapid",
+		"question": "A colleague wraps a slow filter in startTransition and says it made the app faster. In under a minute, say what actually changed.",
+		"codeContext": null,
+		"modelAnswer": "The filter takes exactly as long as it did. What changed is what it is allowed to block. Marked as a transition, that render can be interrupted by urgent updates such as typing or clicking, so the interface keeps responding while the work continues in the background.\n\n    \nSo it is faster to *use*, not faster to *run*. If the filter is slow because of an inefficient algorithm or too much data, a transition hides the symptom; fixing the work itself, or not doing it in the browser, is still the real answer.",
+		"related": ["react/how-react-works/reconciliation-fiber-and-re-renders"]
+	},
+	{
+		"id": "9.7",
+		"chapterId": "react/how-react-works",
+		"noteId": "react/how-react-works/reconciliation-fiber-and-re-renders",
+		"kind": "diagnose",
+		"question": "How many renders does each of these cause, and why?",
+		"codeContext": "// A\nconst onClick = () => { setA(1); setB(2); setC(3); };\n\n// B\nconst onClick = () => {\n  fetch('/api/jobs')\n    .then(() => {\n      setLoading(false);\n      setJobs(data);\n    });\n};",
+		"modelAnswer": "**A: one render.** Setters schedule rather than render, and React batches everything queued during the handler.\n\n    \n**B: one render.** Batching applies inside promises, timeouts and native listeners as well. Worth knowing when reading older code: before automatic batching landed in React 18 this produced two renders, so an upgraded codebase can behave differently here.",
+		"related": ["react/how-react-works/reconciliation-fiber-and-re-renders"]
+	},
+	{
+		"id": "9.9",
+		"chapterId": "react/how-react-works",
+		"noteId": "react/how-react-works/reconciliation-fiber-and-re-renders",
+		"kind": "explain",
+		"question": "Every major framework except React has adopted signals. Why has React not, and what is the trade?",
+		"codeContext": null,
+		"modelAnswer": "**Why not:** React's answer to wasted re-renders is the compiler rather than a new reactivity primitive. Automatic memoization at build time removes most of the cost while keeping components as plain functions of props and state — no special value type, no subscription semantics, and the existing model unchanged.\n\n    \n**The trade:** signals update precisely what changed, with no dependency arrays and no memoization to get right, but the values are not plain data — they are read through a function, and passing one around is different from passing its value. React keeps the simpler model and accepts re-renders it then has to skip, which is why so much of this book is about knowing what re-renders and why.\n\n    \nA good answer notes that this is a genuine architectural disagreement rather than React being behind, and that a native signals proposal in the language may make it moot.",
+		"related": ["react/how-react-works/reconciliation-fiber-and-re-renders"]
+	},
+	{
+		"id": "10.3",
+		"chapterId": "react/how-react-works",
+		"noteId": "react/how-react-works/the-rules-of-react",
+		"kind": "diagnose",
+		"question": "This crashes with a hook-order error as soon as the job loads. Find the cause and fix it.",
+		"codeContext": "const JobPage = ({ id }) => {\n  const { job, loading } = useJob(id);\n\n  if (loading) {\n    return <Spinner />;\n  }\n\n  const [showFull, setShowFull] = useState(false);\n\n  return <JobDetail job={job} showFull={showFull} />;\n};",
+		"modelAnswer": "The early return sits above `useState`. While loading, React sees one hook call; once the job arrives it sees two, and the counts no longer match.\n\n```jsx\nconst JobPage = ({ id }) => {\n  const { job, loading } = useJob(id);\n  const [showFull, setShowFull] = useState(false);\n\n  if (loading) {\n    return <Spinner />;\n  }\n\n  return <JobDetail job={job} showFull={showFull} />;\n};\n```\n\n    \nAll hooks first, then the guards. Worth internalising as a shape rather than a rule: hooks form a fixed block at the top of every component, and nothing that can return early goes above it.",
+		"related": ["react/how-react-works/the-rules-of-react"]
+	},
+	{
+		"id": "10.4",
+		"chapterId": "react/how-react-works",
+		"noteId": "react/how-react-works/the-rules-of-react",
+		"kind": "diagnose",
+		"question": "Deleting a job updates the array but the list on screen does not change. Explain why, then fix it.",
+		"codeContext": "const deleteJob = (id) => {\n  const next = jobs;\n  next.splice(next.findIndex((j) => j.id === id), 1);\n  setJobs(next);\n};",
+		"modelAnswer": "`const next = jobs` copies the reference, not the array. `splice` then mutates the array React is already holding, so when `setJobs(next)` runs, React compares the new value with the old, finds the identical reference, and bails out. Nothing re-renders.\n\n```jsx\nsetJobs(jobs.filter((j) => j.id !== id));\n```\n\n    \nThe failure mode is worse than a missing update. The data and the screen now disagree, and the change appears later when some unrelated state triggers a render, which makes it look like an intermittent bug rather than a mutation.\n\n    \nThe same trap applies to objects: `filters.type = 'Remote'` followed by `setFilters(filters)`. Build a new value with `{ ...filters, type: 'Remote' }`.",
+		"related": ["react/how-react-works/the-rules-of-react"]
+	},
+	{
+		"id": "10.5",
+		"chapterId": "react/how-react-works",
+		"noteId": "react/how-react-works/the-rules-of-react",
+		"kind": "diagnose",
+		"question": "The badge reaches 1 and stops. Name the cause, then give two fixes and say when each is the right one.",
+		"codeContext": "const [newJobs, setNewJobs] = useState(0);\n\nuseEffect(() => {\n  const id = setInterval(() => {\n    setNewJobs(newJobs + 1);\n  }, 5000);\n  return () => clearInterval(id);\n}, []);",
+		"modelAnswer": "**Cause:** the effect runs once, so the callback passed to `setInterval` captured the first render's `newJobs`, which was 0. Every tick computes `0 + 1`. The first tick changes the value to 1; every tick after that sets it to 1 again, and React skips the render because the value is unchanged.\n\n    \n**Fix one — functional update.** Right here, because the next value depends only on the previous one. The interval no longer reads state at all, so there is nothing to go stale and the effect can keep its empty dependency array.\n\n```jsx\nsetInterval(() => {\n  setNewJobs((n) => n + 1);\n}, 5000);\n```\n\n    \n**Fix two — add the dependency.** Right when the effect's behaviour genuinely differs per value, for example when the interval duration itself depends on state. The cost is that the interval is torn down and recreated on every change, which resets the timer, so it is wrong for a counter like this one.\n\n    \n**When a ref is the answer:** when something long-lived needs the latest value but must not be rebuilt — a socket handler, or an analytics call inside a subscription you do not want to re-establish. Keep the value in a ref, update it in an effect, and read `ref.current` inside the callback.",
+		"related": ["react/how-react-works/the-rules-of-react"]
+	},
+	{
+		"id": "10.6",
+		"chapterId": "react/how-react-works",
+		"noteId": "react/how-react-works/the-rules-of-react",
+		"kind": "diagnose",
+		"question": "This stops the duplicate request in development and it works. Explain why it is still wrong.",
+		"codeContext": "const fetched = useRef(false);\n\nuseEffect(() => {\n  if (fetched.current) {\n    return;\n  }\n\n  fetched.current = true;\n\n  fetch(`/api/jobs/${id}`)\n    .then(…);\n}, [id]);",
+		"modelAnswer": "It treats the symptom. The duplicate request in development is StrictMode telling you the effect has no cleanup, and the ref guard silences the messenger.\n\n    \nTwo consequences follow. The guard never resets, so when `id` changes the effect runs and immediately returns: the page keeps showing the previous job. And the original problem is untouched — if the component unmounts mid-request, the response still arrives and still tries to set state on a component that is gone.\n\n    \n**The actual fix** is cleanup — an `AbortController` that cancels the request when the effect re-runs or unmounts (see 11) — which handles the double mount and the race condition together.\n\n```jsx\nuseEffect(() => {\n  const controller = new AbortController();\n  fetch(`/api/jobs/${id}`, { signal: controller.signal })\n    .then(…);\n  return () => controller.abort();\n}, [id]);\n```\n\n    \nGeneralisable: when development-only behaviour reveals a problem, the fix is almost never to detect development.",
+		"related": ["react/how-react-works/the-rules-of-react", "react/effects-and-refs/useeffect"]
+	},
+	{
+		"id": "10.7",
+		"chapterId": "react/how-react-works",
+		"noteId": "react/how-react-works/the-rules-of-react",
+		"kind": "rapid",
+		"question": "In under a minute: what is StrictMode's double render for, and why does it not happen in production?",
+		"codeContext": null,
+		"modelAnswer": "It checks that your components are pure and your effects clean up after themselves. Calling the function twice should produce the same result; mounting an effect, unmounting it and mounting it again should leave exactly one subscription, timer or request running. If either is untrue, you have a bug that would otherwise surface rarely and be hard to reproduce.\n\n    \nIt is skipped in production because it is a check, not behaviour: doubling the work has a cost, and users gain nothing from it.",
+		"related": ["react/how-react-works/the-rules-of-react"]
+	},
+	{
+		"id": "10.8",
+		"chapterId": "react/how-react-works",
+		"noteId": "react/how-react-works/the-rules-of-react",
+		"kind": "explain",
+		"question": "Why do these rules matter more now than they did before React Compiler?",
+		"codeContext": null,
+		"modelAnswer": "React Compiler adds memoization automatically by analysing how data flows through your components, and that analysis is only valid if the rules hold. Where it cannot prove a component is safe it skips it, so a rule-breaking component silently loses the optimisation. Where a violation is invisible to it — mutating something it believes is unchanged, for instance — the memoized output can be wrong.\n\n    \nThe rules used to be advice you could ignore at a cost you controlled. They are now a contract you trade for optimisation you did not have to write.",
+		"related": ["react/how-react-works/the-rules-of-react"]
+	},
+	{
+		"id": "11.3",
+		"chapterId": "react/effects-and-refs",
+		"noteId": "react/effects-and-refs/useeffect",
+		"kind": "diagnose",
+		"question": "This works, and it is two things too many. Explain and rewrite.",
+		"codeContext": "const [jobs, setJobs] = useState([]);\nconst [count, setCount] = useState(0);\n\nuseEffect(() => {\n  setCount(jobs.length);\n}, [jobs]);",
+		"modelAnswer": "`count` is not independent information — it is `jobs.length`. Storing it in state creates a value that can disagree with its source, and the effect makes every change render twice: once with the new jobs and the old count, then again after the effect corrects it.\n\n```jsx\nconst [jobs, setJobs] = useState([]);\nconst count = jobs.length;\n```\n\n    \nThe general rule: if a value can be calculated from existing props or state, calculate it. State is for information that cannot be derived.",
+		"related": ["react/effects-and-refs/useeffect"]
+	},
+	{
+		"id": "11.4",
+		"chapterId": "react/effects-and-refs",
+		"noteId": "react/effects-and-refs/useeffect",
+		"kind": "diagnose",
+		"question": "Clicking through job listings quickly sometimes shows the wrong job. Name the cause, then give two fixes and say when each is right.",
+		"codeContext": "useEffect(() => {\n  fetch(`/api/jobs/${id}`)\n    .then((res) => res.json())\n    .then((data) => {\n      setJob(data);\n    });\n}, [id]);",
+		"modelAnswer": "**Cause:** a race condition. Changing `id` starts a new request without stopping the previous one, and responses can arrive in any order. A slow request for the first job resolves last and calls `setJob` with stale data.\n\n    \n**Fix one — abort in cleanup.** The default. It stops the work as well as the state update, so the browser is not downloading a response nobody wants.\n\n```jsx\nconst controller = new AbortController();\n\nfetch(url, { signal: controller.signal })\n  .then(…);\n\nreturn () => {\n  controller.abort();\n};\n```\n\n    \n**Fix two — an ignore flag.** Let the request finish and discard the result. Right when the response is worth having anyway, for instance when it populates a cache, or when the request is not cancellable.\n\n```jsx\nlet ignore = false;\n\nfetch(url)\n  .then((data) => {\n    if (!ignore) {\n      setJob(data);\n    }\n  });\n\nreturn () => {\n  ignore = true;\n};\n```\n\n    \n**The fix beyond both:** a route loader or a query library handles cancellation and caching for you (see 16, 17). Hand-written fetching in an effect is correct but it is a lot of machinery to maintain per component.",
+		"related": [
+			"react/effects-and-refs/useeffect",
+			"react/data-and-architecture/data-fetching",
+			"react/data-and-architecture/routing-with-react-router"
+		]
+	},
+	{
+		"id": "11.5",
+		"chapterId": "react/effects-and-refs",
+		"noteId": "react/effects-and-refs/useeffect",
+		"kind": "diagnose",
+		"question": "A colleague fixes an effect loop by wrapping the dependency in useMemo. It works. What would you suggest instead, and when would you accept their version?",
+		"codeContext": "const query = useMemo(() => ({ type, location }), [type, location]);\n\nuseEffect(() => {\n  fetchJobs(query);\n}, [query]);",
+		"modelAnswer": "**Suggest instead:** build the object inside the effect and depend on the primitives it is made of.\n\n```jsx\nuseEffect(() => {\n  fetchJobs({ type, location });\n}, [type, location]);\n```\n\n    \nThe object existed only to be handed to the effect, so lifting it out created an identity that then had to be stabilised. Removing it removes the problem rather than managing it, and there is no memoized value to keep correct as the code changes (see 22).\n\n    \n**When their version is right:** when the object is genuinely shared — passed to several children, or used by other hooks — so it needs one stable identity across the component. Then `useMemo` is doing real work rather than patching a dependency array.",
+		"related": ["react/effects-and-refs/useeffect", "react/production/performance"]
+	},
+	{
+		"id": "11.6",
+		"chapterId": "react/effects-and-refs",
+		"noteId": "react/effects-and-refs/useeffect",
+		"kind": "explain",
+		"question": "Why split three unrelated concerns into three effects rather than one?",
+		"codeContext": null,
+		"modelAnswer": "Because the dependencies differ. Combined into one effect, the union of all dependencies triggers all the work: a title change re-runs the fetch, and the keyboard listener is torn down and rebuilt on every id change. Split, each piece runs exactly when its own inputs change. Separate effects are also individually readable and individually removable.",
+		"related": ["react/effects-and-refs/useeffect"]
+	},
+	{
+		"id": "11.7",
+		"chapterId": "react/effects-and-refs",
+		"noteId": "react/effects-and-refs/useeffect",
+		"kind": "rapid",
+		"question": "In under a minute: when would you reach for useLayoutEffect, and what does it cost?",
+		"codeContext": null,
+		"modelAnswer": "When you need to measure or adjust the DOM before the user sees it — reading a node's size and repositioning it, for instance. It runs inside the commit, after the DOM is updated but before paint, so there is no visible flicker.\n\n    \nThe cost is that painting waits for it. Anything slow inside delays the frame, so it is only justified when the alternative is a visible flash.",
+		"related": ["react/effects-and-refs/useeffect"]
+	},
+	{
+		"id": "12.3",
+		"chapterId": "react/effects-and-refs",
+		"noteId": "react/effects-and-refs/useref",
+		"kind": "diagnose",
+		"question": "This crashes on the first render. Why, and what are two ways to fix it?",
+		"codeContext": "const JobCard = ({ job }) => {\n  const cardRef = useRef(null);\n  const height = cardRef.current.offsetHeight;\n\n  return <div ref={cardRef}>{job.title}</div>;\n};",
+		"modelAnswer": "On the first render the element does not exist yet, so `cardRef.current` is `null` and reading `.offsetHeight` throws. Reading a ref during render is also impure — even later it would give the DOM as it was before this render committed (see 8).\n\n    \n**Fix one — measure in an effect.** Right when the value feeds logic: reporting a size, deciding whether to load more.\n\n```jsx\nuseEffect(() => {\n  setHeight(cardRef.current.offsetHeight);\n}, [job]);\n```\n\n    \n**Fix two — `useLayoutEffect`.** Right when the measurement changes what is painted, so the user never sees the intermediate state. It blocks paint, so it is not the default (see 11).\n\n    \n**Worth asking first:** whether the measurement is needed at all. Layout the browser already performs is usually cheaper to express in CSS than to read back into JavaScript.",
+		"related": [
+			"react/effects-and-refs/useref",
+			"react/how-react-works/the-render-cycle",
+			"react/effects-and-refs/useeffect"
+		]
+	},
+	{
+		"id": "12.4",
+		"chapterId": "react/effects-and-refs",
+		"noteId": "react/effects-and-refs/useref",
+		"kind": "diagnose",
+		"question": "The counter shows the right number when other things change but never updates on its own. Explain the cause and the fix.",
+		"codeContext": "const applyCount = useRef(0);\n\nconst onApply = () => {\n  applyCount.current += 1;\n};\n\nreturn <p>{applyCount.current} applications</p>;",
+		"modelAnswer": "The ref updates correctly on every click, but nothing schedules a render, so the paragraph keeps showing whatever was rendered last. When an unrelated state change eventually causes a render, the number jumps to its current value, which makes it look intermittent.\n\n```jsx\nconst [applyCount, setApplyCount] = useState(0);\nconst onApply = () => {\n  setApplyCount((c) => c + 1);\n};\n```\n\n    \nThe rule this illustrates: the moment a value appears in the returned JSX, it is state. A ref is for values the render output does not depend on.",
+		"related": ["react/effects-and-refs/useref"]
+	},
+	{
+		"id": "12.5",
+		"chapterId": "react/effects-and-refs",
+		"noteId": "react/effects-and-refs/useref",
+		"kind": "diagnose",
+		"question": "The parent's searchRef.current is always null. What is missing?",
+		"codeContext": "const SearchInput = (props) => <input {...props} />;\n\n// parent\n<SearchInput ref={searchRef} />",
+		"modelAnswer": "`SearchInput` spreads `props` onto the input but never receives or forwards `ref`, so nothing is ever attached. Accept it as a prop and pass it down:\n\n```jsx\nconst SearchInput = ({ ref, ...props }) => <input ref={ref} {...props} />;\n```\n\n    \nIn older codebases the same thing is written with `forwardRef`, where the ref arrives as a second argument rather than in props.",
+		"related": ["react/effects-and-refs/useref"]
+	},
+	{
+		"id": "12.6",
+		"chapterId": "react/effects-and-refs",
+		"noteId": "react/effects-and-refs/useref",
+		"kind": "rapid",
+		"question": "In under a minute: when is a ref the right answer to a stale closure, and when is it a warning sign?",
+		"codeContext": null,
+		"modelAnswer": "A ref is right when something long-lived must read the latest value but must not be rebuilt when that value changes — a socket handler, an analytics call inside a subscription you do not want to re-establish. Store the value in a ref, update it in an effect, read `ref.current` inside the callback.\n\n    \nIt is a warning sign when it is being used to avoid adding a dependency. That usually means the effect is doing several jobs, or the value should have been a functional state update instead. Silencing the dependency array with a ref removes the symptom and keeps the bug.",
+		"related": ["react/effects-and-refs/useref"]
+	},
+	{
+		"id": "12.7",
+		"chapterId": "react/effects-and-refs",
+		"noteId": "react/effects-and-refs/useref",
+		"kind": "explain",
+		"question": "Write usePrevious and explain why the returned value is the previous one rather than the current one.",
+		"codeContext": null,
+		"modelAnswer": "```jsx\nconst usePrevious = (value) => {\n  const ref = useRef(null);\n\n  useEffect(() => {\n    ref.current = value;\n  }, [value]);\n\n  return ref.current;\n};\n```\n\n    \nThe return happens during render; the assignment happens in an effect, which runs after commit. So on any given render the ref still holds what was written after the *last* render, which is the previous value. On the first render it is `null`, since no effect has run yet.\n\n    \nOrdering is the whole mechanism. Write to the ref during render instead and it would always equal the current value, making the hook useless.",
+		"related": ["react/effects-and-refs/useref"]
+	},
+	{
+		"id": "13.3",
+		"chapterId": "react/effects-and-refs",
+		"noteId": "react/effects-and-refs/custom-hooks",
+		"kind": "diagnose",
+		"question": "This hook re-subscribes on every render of every component that uses it. Find the cause, then give two fixes.",
+		"codeContext": "useClickOutside(panelRef, () => setOpen(false));\n\n// inside the hook\nuseEffect(() => {\n  document.addEventListener('mousedown', handler);\n\n  return () => {\n    document.removeEventListener('mousedown', handler);\n  };\n}, [ref, onOutside]);",
+		"modelAnswer": "**Cause:** the caller passes an inline arrow function, which is a new identity on every render. It is in the dependency array, so the effect tears down the listener and adds a new one every time.\n\n    \n**Fix one — stabilise at the call site** with `useCallback`, which returns the same function identity between renders (see 22). Correct, but it pushes the burden onto every caller, and one who forgets reintroduces the problem silently.\n\n    \n**Fix two — hold the callback in a ref inside the hook.** Better here, because the hook stops caring about the identity of a function it only ever calls.\n\n```jsx\nconst savedRef = useRef(onOutside);\nuseEffect(() => { savedRef.current = onOutside; });\n\nuseEffect(() => {\n  const handler = (e) => { … savedRef.current(); };\n  document.addEventListener('mousedown', handler);\n\n  return () => {\n    document.removeEventListener('mousedown', handler);\n  };\n}, [ref]);\n```\n\n    \nThe general principle: a reusable hook should be robust against inline callbacks, because it cannot control how it is called.",
+		"related": ["react/effects-and-refs/custom-hooks", "react/production/performance"]
+	},
+	{
+		"id": "13.4",
+		"chapterId": "react/effects-and-refs",
+		"noteId": "react/effects-and-refs/custom-hooks",
+		"kind": "diagnose",
+		"question": "Why is the initial value here written as a function, and what changes if it is not?",
+		"codeContext": "const [value, setValue] = useState(() => {\n  return JSON.parse(localStorage.getItem(key));\n});",
+		"modelAnswer": "Passing a function makes it an initializer: React calls it once, on the first render, and ignores it afterwards. Passing the value directly means `localStorage.getItem` and `JSON.parse` execute on every render, and the result is discarded every time after the first. Correct either way, wasteful one way.",
+		"related": ["react/effects-and-refs/custom-hooks"]
+	},
+	{
+		"id": "13.5",
+		"chapterId": "react/effects-and-refs",
+		"noteId": "react/effects-and-refs/custom-hooks",
+		"kind": "explain",
+		"question": "A search box uses useDebounce to delay filtering an in-memory list of 5,000 jobs. It works. What would you use instead, and when is the debounce still correct?",
+		"codeContext": null,
+		"modelAnswer": "**Instead:** `useDeferredValue`. The filtering is a rendering cost, not a network cost, so there is nothing to save by waiting. A deferred value keeps the input responsive and lets React interrupt the expensive render, adapting to the actual speed of the device rather than a fixed 300ms that is too slow on a fast machine and too fast on a slow one (see 18).\n\n    \n**When the debounce is right:** when the delay prevents real work — a request per keystroke, an expensive server query, a rate-limited API. There, not firing at all beats firing and interrupting.",
+		"related": [
+			"react/effects-and-refs/custom-hooks",
+			"react/data-and-architecture/suspense-lazy-and-transitions"
+		]
+	},
+	{
+		"id": "13.6",
+		"chapterId": "react/effects-and-refs",
+		"noteId": "react/effects-and-refs/custom-hooks",
+		"kind": "explain",
+		"question": "The navbar shows a job count and the page shows the list, both via useJobs. After adding a job the count is wrong until reload. Explain why, and say what actually fixes it.",
+		"codeContext": null,
+		"modelAnswer": "Each `useJobs` call has its own state and its own effect. Adding a job refetches in one component; the other still holds the array it fetched earlier, and nothing tells it otherwise.\n\n    \nNeither `useCallback`, a context around the hook, nor a manual refresh flag really fixes this — they work around it. The actual fix is a single cache that both callers read from, with the mutation invalidating it so every reader updates (see 16). This is the specific limitation that makes query libraries worth their weight, and it is worth being able to state precisely rather than reaching for global state by reflex.",
+		"related": [
+			"react/effects-and-refs/custom-hooks",
+			"react/data-and-architecture/data-fetching"
+		]
+	},
+	{
+		"id": "13.7",
+		"chapterId": "react/effects-and-refs",
+		"noteId": "react/effects-and-refs/custom-hooks",
+		"kind": "rapid",
+		"question": "In under a minute: why are custom hooks generally preferred over higher-order components for sharing logic?",
+		"codeContext": null,
+		"modelAnswer": "Hooks add no component to the tree, so DevTools stays readable and there are no wrapper layers. Values come from an explicit call, so it is obvious where `const { user } = useAuth()` came from, whereas an injected prop appears from nowhere. Several hooks compose as plain calls rather than `withA(withB(withC(X)))`, with no prop-name collisions, and typing them is straightforward.\n\n    \nHOCs remain useful for wrapping rendering itself — deciding whether a component renders at all, or wrapping it in a boundary or provider — which a hook inside the component cannot do (see 24).",
+		"related": ["react/effects-and-refs/custom-hooks", "react/production/component-patterns"]
+	},
+	{
+		"id": "14.3",
+		"chapterId": "react/state-at-scale",
+		"noteId": "react/state-at-scale/state-beyond-one-component",
+		"kind": "diagnose",
+		"question": "Typing in the search box makes the whole page stutter. The list does not use the query. Give the fix and explain why it works.",
+		"codeContext": "const JobsPage = () => {\n  const [query, setQuery] = useState('');\n\n  return (\n    <>\n      <input value={query} onChange={(e) => { setQuery(e.target.value); }} />\n      <ExpensiveJobList />\n    </>\n  );\n};",
+		"modelAnswer": "The state is too high. Every keystroke re-renders `JobsPage`, and re-rendering a parent re-renders its children regardless of props (see 9).\n\n```jsx\nconst SearchBox = () => {\n  const [query, setQuery] = useState('');\n  return <input value={query} onChange={(e) => { setQuery(e.target.value); }} />;\n};\n```\n\n    \nNow the state changes inside `SearchBox`, so only `SearchBox` re-renders. This is worth trying before `memo`: moving state down removes the re-render at its source, whereas `memo` adds a comparison to stop a re-render that still gets triggered.",
+		"related": [
+			"react/state-at-scale/state-beyond-one-component",
+			"react/how-react-works/reconciliation-fiber-and-re-renders"
+		]
+	},
+	{
+		"id": "14.4",
+		"chapterId": "react/state-at-scale",
+		"noteId": "react/state-at-scale/state-beyond-one-component",
+		"kind": "explain",
+		"question": "The list must stay inside the panel for layout reasons, and the panel has its own state. Give a fix that needs no memo.",
+		"codeContext": null,
+		"modelAnswer": "Move the content up: have the parent create the list and pass it in as `children`.\n\n```jsx\n<FilterPanel>\n  <JobList jobs={jobs} />\n</FilterPanel>\n```\n\n    \nThe `children` element is created by `JobsPage`, which is not re-rendering. When `FilterPanel`'s state changes it re-renders and hands the same element object back into its output, so React sees an identical element and reuses the subtree.\n\n    \nThe layout is unchanged — `JobList` still renders inside the panel's markup. What changed is who created the element, and that is enough.",
+		"related": ["react/state-at-scale/state-beyond-one-component"]
+	},
+	{
+		"id": "14.5",
+		"chapterId": "react/state-at-scale",
+		"noteId": "react/state-at-scale/state-beyond-one-component",
+		"kind": "diagnose",
+		"question": "Undo works, but after undoing and then editing, Redo restores something unexpected. Find the bug.",
+		"codeContext": "const next = reducer(present, action);\n\nreturn {\n  past: [...past, present],\n  present: next,\n  future,\n};",
+		"modelAnswer": "`future` is carried through unchanged. After undoing, `future` holds the state you undid; making a different edit should abandon that branch, but here it survives. Redo then restores a state that never followed from the current one, and the document jumps to something the user never saw.\n\n```jsx\nreturn {\n  past: [...past, present],\n  present: next,\n  future: [],\n};\n```\n\n    \nEvery editor behaves this way: undo, then type, and redo becomes unavailable. It is the standard rule for a linear history, and forgetting it is the classic bug in a hand-rolled implementation.",
+		"related": ["react/state-at-scale/state-beyond-one-component"]
+	},
+	{
+		"id": "14.6",
+		"chapterId": "react/state-at-scale",
+		"noteId": "react/state-at-scale/state-beyond-one-component",
+		"kind": "diagnose",
+		"question": "Consumers re-render on every render of the provider, even when the user has not changed. Explain and fix.",
+		"codeContext": "<AuthContext.Provider value={{ user, setUser }}>\n  {children}\n</AuthContext.Provider>",
+		"modelAnswer": "The value is an object literal, so it has a new identity on every render of the provider. React compares context values by identity, so every consumer sees a change even when `user` is the same.\n\n```jsx\nconst value = useMemo(() => {\n  return { user, setUser };\n}, [user]);\n\n<AuthContext.Provider value={value}>\n```\n\n    \nThis is one of the few places `useMemo` is close to mandatory rather than an optimisation, because the cost lands on every consumer in the subtree rather than in one component. It only matters if the provider re-renders for reasons other than `user` changing — if the provider holds nothing else, the identity changes only when the value does anyway.",
+		"related": ["react/state-at-scale/state-beyond-one-component"]
+	},
+	{
+		"id": "14.7",
+		"chapterId": "react/state-at-scale",
+		"noteId": "react/state-at-scale/state-beyond-one-component",
+		"kind": "explain",
+		"question": "Someone proposes one AppContext holding user, theme, cart, notifications and the current search query. Give your recommendation and the reasoning.",
+		"codeContext": null,
+		"modelAnswer": "**Recommendation:** split it, and take two of those out of context entirely.\n\n    \nThe five values have completely different change frequencies. Theme and user change rarely; the search query changes on every keystroke; notifications arrive constantly. In one context, the fastest-changing value sets the re-render rate for every consumer of the slowest, so components that only read the theme re-render as the user types.\n\n    \nThe search query probably should not be in context at all — it is used by one part of the page and belongs colocated or lifted to the nearest parent. Cart and notification data are usually server data, which belongs in a cache with invalidation rather than in context (see 16).\n\n    \nThat leaves `AuthProvider` and `ThemeProvider`: two small contexts holding values that genuinely are app-wide and rarely change. If updates later become complex enough to need reducers and devtools, that is the argument for a store (see 15) — not the number of values.",
+		"related": [
+			"react/state-at-scale/state-beyond-one-component",
+			"react/state-at-scale/redux-toolkit",
+			"react/data-and-architecture/data-fetching"
+		]
+	},
+	{
+		"id": "14.8",
+		"chapterId": "react/state-at-scale",
+		"noteId": "react/state-at-scale/state-beyond-one-component",
+		"kind": "rapid",
+		"question": "In under a minute: when do you move from useState to useReducer?",
+		"codeContext": null,
+		"modelAnswer": "When updates stop being independent. Several values that change together, transitions that depend on the current state, or the same update logic firing from many places — all become clearer as one function with named actions.\n\n    \nThe practical signals: three or more `useState` calls that always change in the same handler, setter logic duplicated across components, or a bug caused by updating two pieces of state inconsistently. A reducer also gives you a pure function to test without React, and the option to wrap it for undo, logging or persistence.",
+		"related": ["react/state-at-scale/state-beyond-one-component"]
+	},
+	{
+		"id": "15.3",
+		"chapterId": "react/state-at-scale",
+		"noteId": "react/state-at-scale/redux-toolkit",
+		"kind": "diagnose",
+		"question": "This component re-renders whenever anything in the store changes. Explain and give two fixes.",
+		"codeContext": "const remoteJobs = useSelector((state) => {\n  return state.jobs.items.filter((job) => job.isRemote);\n});",
+		"modelAnswer": "**Cause:** `useSelector` compares its result by reference. `filter` returns a new array each call, so the comparison always fails and the component re-renders on every dispatched action, whatever it changed.\n\n    \n**Fix one — memoize the selector** with `createSelector`. Right when the derivation is expensive or reused in several components, and the standard answer.\n\n```jsx\nconst selectRemoteJobs = createSelector(\n  [(state) => state.jobs.items],\n  (items) => items.filter((job) => job.isRemote)\n);\n```\n\n    \n**Fix two — select the raw value and derive in the component.** Right when the derivation is cheap. `items` is a stable reference until it actually changes, so the subscription behaves, and the filtering is ordinary render work.\n\n    \nPrefer the second for simple cases: it needs no extra concept and no memoized selector to keep correct (see 22). Reach for the first when the same derived value is needed in several places or is genuinely costly.",
+		"related": ["react/state-at-scale/redux-toolkit", "react/production/performance"]
+	},
+	{
+		"id": "15.4",
+		"chapterId": "react/state-at-scale",
+		"noteId": "react/state-at-scale/redux-toolkit",
+		"kind": "explain",
+		"question": "A team stores every API response in Redux with a thunk per endpoint, and each slice has its own status and error. It works. What would you change and why?",
+		"codeContext": null,
+		"modelAnswer": "The duplication is the signal. Every slice reimplementing `status`, `error`, pending and rejected handling means the store is being used as a cache, and caching is a solved problem it does not solve.\n\n    \nMove server data to a query library — TanStack Query, or RTK Query if staying inside the Redux ecosystem. That removes the per-endpoint thunks and gives deduplication, background refetching, staleness rules and invalidation after mutations, none of which the hand-written version has (see 16).\n\n    \nThen look at what remains in the store. Often it is a small amount of genuine client state, and occasionally it is nothing — at which point the store can go too. The change is not \"Redux is wrong\", it is that two different kinds of state were being handled with one tool.",
+		"related": [
+			"react/state-at-scale/redux-toolkit",
+			"react/data-and-architecture/data-fetching"
+		]
+	},
+	{
+		"id": "15.7",
+		"chapterId": "react/state-at-scale",
+		"noteId": "react/state-at-scale/redux-toolkit",
+		"kind": "explain",
+		"question": "A new project asks whether to set up Redux on day one. Give your answer and the reasoning.",
+		"codeContext": null,
+		"modelAnswer": "**No, not on day one.** On a new project you do not yet know what state is genuinely shared, and setting up a store first tends to pull state into it that should have stayed local.\n\n    \nStart with colocated state, lift where two components need the same value, add a query library as soon as you fetch anything, and use Context for the small number of app-wide values. Those four cover most applications completely.\n\n    \n**Revisit when** you find real client state that many parts of the app both read and write, with transitions complex enough that you want them named and logged. Adding Redux later is straightforward, because the reducer logic you already wrote transfers almost unchanged. Removing it later is not.",
+		"related": ["react/state-at-scale/redux-toolkit"]
+	},
+	{
+		"id": "15.8",
+		"chapterId": "react/state-at-scale",
+		"noteId": "react/state-at-scale/redux-toolkit",
+		"kind": "rapid",
+		"question": "In under a minute: explain the difference between client state and server state, and why it changes the tooling.",
+		"codeContext": null,
+		"modelAnswer": "Client state is owned by the app and only exists in the browser: which panel is open, what is selected, an in-progress form. It has one source of truth, and you decide when it changes.\n\n    \nServer state is a copy of data owned elsewhere. It can go stale without anything happening in the browser, may be requested by several components at once, and needs refetching and invalidating after mutations.\n\n    \nThey need different tools because the hard problems differ. Client state needs structure for updates — reducers, actions, a store. Server state needs caching, deduplication and staleness rules. Using one tool for both means hand-writing the missing half, which is what a thunk-per-endpoint codebase is.",
+		"related": ["react/state-at-scale/redux-toolkit"]
+	},
+	{
+		"id": "16.3",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/data-fetching",
+		"kind": "diagnose",
+		"question": "Changing the filter shows the previous filter's results. Find the bug.",
+		"codeContext": "const { data } = useQuery({\n  queryKey: ['jobs'],\n  queryFn: () => fetchJobs(type),\n});",
+		"modelAnswer": "The key does not include `type`, but the query function depends on it. The cache sees the same key, returns the cached result, and never refetches for the new filter.\n\n```jsx\nconst { data } = useQuery({\n  queryKey: ['jobs', type],\n  queryFn: () => fetchJobs(type),\n});\n```\n\n    \nThe rule is mechanical: everything the query function reads goes in the key. Then each filter caches separately, switching back is instant, and changing the filter refetches automatically.",
+		"related": ["react/data-and-architecture/data-fetching"]
+	},
+	{
+		"id": "16.4",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/data-fetching",
+		"kind": "explain",
+		"question": "The navbar count is wrong after adding a job, until reload. The list is correct. Explain and fix.",
+		"codeContext": null,
+		"modelAnswer": "The two components hold separate copies of the data — either two `useJobs` hooks, or a fetch in each. The mutation refetched one of them; the other has no way of knowing anything changed (see 13).\n\n    \nWith a shared cache, both read the same entry and one line fixes it:\n\n```jsx\nonSuccess: () => {\n  queryClient.invalidateQueries({ queryKey: ['jobs'] });\n},\n```\n\n    \nThe workarounds — lifting the data to a common parent, putting it in context, passing a refresh callback down — all work and all amount to hand-building the part of a cache you needed.",
+		"related": [
+			"react/data-and-architecture/data-fetching",
+			"react/effects-and-refs/custom-hooks"
+		]
+	},
+	{
+		"id": "16.5",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/data-fetching",
+		"kind": "diagnose",
+		"question": "This optimistic delete occasionally makes the row reappear for a moment. What is missing?",
+		"codeContext": "onMutate: (id) => {\n  queryClient.setQueryData(['jobs'], (old) => {\n    return old.filter((job) => job.id !== id);\n  });\n},",
+		"modelAnswer": "Three things: `cancelQueries`, the snapshot, and the rollback.\n\n    \nWithout `await queryClient.cancelQueries(…)`, a refetch already in flight can resolve after the optimistic write and replace the cache with data that still contains the deleted row — which is exactly the flicker described. Without the snapshot and `onError`, a failed request leaves the row permanently missing from the UI while it still exists on the server.\n\n```jsx\nonMutate: async (id) => {\n  await queryClient.cancelQueries({ queryKey: ['jobs'] });\n  const previous = queryClient.getQueryData(['jobs']);\n  queryClient.setQueryData(['jobs'], (old) => {\n    return old.filter((job) => job.id !== id);\n  });\n  return { previous };\n},\nonError: (err, id, context) => {\n  queryClient.setQueryData(['jobs'], context.previous);\n},\nonSettled: () => {\n  queryClient.invalidateQueries({ queryKey: ['jobs'] });\n},\n```",
+		"related": ["react/data-and-architecture/data-fetching"]
+	},
+	{
+		"id": "16.7",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/data-fetching",
+		"kind": "explain",
+		"question": "A team fetches in effects everywhere and asks whether to adopt a query library. Give your recommendation, what they gain, and when the effect version is still right.",
+		"codeContext": null,
+		"modelAnswer": "**Recommendation: adopt it**, and migrate incrementally rather than all at once — the two coexist fine.\n\n    \n**Gains:** a shared cache, so components stop disagreeing; deduplicated requests; background refetching with staleness rules; invalidation after mutations instead of callbacks threaded through the tree; retries and window-focus refetching; and the removal of the same twenty lines of loading and error handling from every component. Most teams also find a chunk of their global store disappears with it (see 15).\n\n    \n**Costs:** a dependency, and concepts to learn — keys, staleness, invalidation. Keys in particular are a real source of bugs until the \"everything the function reads goes in the key\" rule is internalised.\n\n    \n**When the effect version is still right:** a genuinely one-off fetch; a component that must not depend on the library; or synchronising with something that is not a request — a socket, a browser API — where an effect is the correct tool anyway (see 11).",
+		"related": [
+			"react/data-and-architecture/data-fetching",
+			"react/effects-and-refs/useeffect",
+			"react/state-at-scale/redux-toolkit"
+		]
+	},
+	{
+		"id": "16.8",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/data-fetching",
+		"kind": "rapid",
+		"question": "In under a minute: why is server data described as a cache rather than as state?",
+		"codeContext": null,
+		"modelAnswer": "Because the app does not own it. The authoritative copy lives on the server and can change without anything happening in the browser, so what you hold is a snapshot that is correct for an unknown length of time.\n\n    \nThat framing produces the right questions. Not \"where do I store this\" but: how long is it good for, who else is reading it, what makes it wrong, and how do I find out. Those are cache questions, and they are why a store is the wrong shape for the job — a store keeps a value until you change it, which is precisely the assumption that does not hold.",
+		"related": ["react/data-and-architecture/data-fetching"]
+	},
+	{
+		"id": "17.3",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/routing-with-react-router",
+		"kind": "explain",
+		"question": "Refreshing on /jobs/3 returns a 404 from the host, though it works in development. What is wrong?",
+		"codeContext": null,
+		"modelAnswer": "The host is looking for a file at that path. In a single-page app only `index.html` exists; the router reads the URL after the app boots, which is why in-app navigation works and a direct request does not.\n\n    \nConfigure the host to rewrite unknown paths to `index.html` — a rewrite rule on Netlify or Vercel, `try_files` on nginx, a catch-all route in Express. The dev server does this automatically, which is exactly why the problem only appears after deploying (see 21).",
+		"related": [
+			"react/data-and-architecture/routing-with-react-router",
+			"react/data-and-architecture/project-structure"
+		]
+	},
+	{
+		"id": "17.4",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/routing-with-react-router",
+		"kind": "diagnose",
+		"question": "Users are logged out whenever they refresh a protected page. Find the bug.",
+		"codeContext": "const RequireAuth = () => {\n  const { user } = useAuth();\n\n  if (!user) {\n    return <Navigate to=\"/login\" replace />;\n  }\n\n  return <Outlet />;\n};",
+		"modelAnswer": "There is no loading state. On a refresh the auth context starts with `user` as `null` while it checks the session, so the guard redirects immediately — before the answer arrives.\n\n```jsx\nconst { user, isLoading } = useAuth();\n\nif (isLoading) {\n  return <Spinner />;\n}\n\nif (!user) {\n  return <Navigate to=\"/login\" state={{ from: location }} replace />;\n}\n```\n\n    \n\"Not logged in\" and \"we do not know yet\" are different states, and collapsing them into one falsy check is the single most common auth bug in a client-rendered app (see 20).",
+		"related": [
+			"react/data-and-architecture/routing-with-react-router",
+			"react/data-and-architecture/authentication-patterns"
+		]
+	},
+	{
+		"id": "17.5",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/routing-with-react-router",
+		"kind": "explain",
+		"question": "Filters are held in useState. Give two reasons to move them to the URL, and one case where state is fine.",
+		"codeContext": null,
+		"modelAnswer": "**Move it to the URL because:** the state survives a refresh and the back button, so navigating into a job and back returns the user to the list they left. And it becomes shareable — a filtered view is a link a user can bookmark or send to a colleague, which is often a real product feature rather than a technicality.\n\n    \nTwo more that follow: loaders and query keys can read the URL directly, and it is one source of truth rather than state that has to be kept in step with the address bar.\n\n    \n**State is fine** for things nobody would want to return to or share: whether a dropdown is open, a hover state, an unsubmitted form field. The test is whether the user would be annoyed to lose it on refresh.",
+		"related": ["react/data-and-architecture/routing-with-react-router"]
+	},
+	{
+		"id": "17.6",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/routing-with-react-router",
+		"kind": "explain",
+		"question": "Navigating from /jobs/3/edit to /jobs/7/edit leaves the previous job's values in the form. Explain and fix.",
+		"codeContext": null,
+		"modelAnswer": "Both URLs match the same route, so React sees the same component type in the same position and reuses the instance rather than remounting it. State initialised from the first job survives, and the form shows stale values (see 9).\n\n```jsx\n<EditJobForm key={job.id} job={job} />\n```\n\n    \nChanging the key makes it a different component as far as reconciliation is concerned, so React unmounts and remounts and every field re-initialises. Preferred over an effect that resets each field, which renders the stale values first and then corrects them (see 6, 11).",
+		"related": [
+			"react/data-and-architecture/routing-with-react-router",
+			"react/foundations/lists-and-keys",
+			"react/how-react-works/reconciliation-fiber-and-re-renders",
+			"react/effects-and-refs/useeffect"
+		]
+	},
+	{
+		"id": "17.8",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/routing-with-react-router",
+		"kind": "rapid",
+		"question": "In under a minute: what do loaders give you over fetching in the page component, and what do they not?",
+		"codeContext": null,
+		"modelAnswer": "**They give:** data before the component renders, so there is no loading branch and no null guard. Cancellation on navigation via `request.signal`. No parent-child waterfall, since the loader runs during matching rather than after the parent has rendered. And a clean way to turn a failed fetch into an error route by throwing.\n\n    \n**They do not give:** a cache. Navigate away and back and the loader runs again, and two routes needing the same data fetch it twice. That is the gap a query library fills, and the two compose — a loader can prime the query cache so you get both (see 16).",
+		"related": [
+			"react/data-and-architecture/routing-with-react-router",
+			"react/data-and-architecture/data-fetching"
+		]
+	},
+	{
+		"id": "18.2",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/suspense-lazy-and-transitions",
+		"kind": "explain",
+		"question": "A colleague wraps a slow filter in startTransition and reports it is now faster. What actually changed?",
+		"codeContext": null,
+		"modelAnswer": "Nothing about the speed. The filter takes exactly as long as before. What changed is that the render is now interruptible, so typing and clicking are handled immediately instead of waiting for it to finish.\n\n    \nIt is faster to *use*, not faster to *run*. If the filter is slow because of an inefficient algorithm or too much data in the browser, a transition hides the symptom while the underlying cost remains — and on a slow device the results still take just as long to appear.",
+		"related": ["react/data-and-architecture/suspense-lazy-and-transitions"]
+	},
+	{
+		"id": "18.3",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/suspense-lazy-and-transitions",
+		"kind": "diagnose",
+		"question": "Every navigation blanks the whole app for a moment. Find the cause and fix it.",
+		"codeContext": "<Suspense fallback={<Spinner />}>\n  <RouterProvider router={router} />\n</Suspense>",
+		"modelAnswer": "The boundary is outside the router, so every suspending route replaces the entire application — layout included — with one spinner.\n\n```jsx\nconst MainLayout = () => {\n  return (\n    <>\n      <Navbar />\n      <main>\n        <Suspense fallback={<PageSkeleton />}>\n          <Outlet />\n        </Suspense>\n      </main>\n    </>\n  );\n};\n```\n\n    \nNow the navbar stays put and only the page area shows a fallback, which is what makes client-side navigation feel different from a page load.",
+		"related": ["react/data-and-architecture/suspense-lazy-and-transitions"]
+	},
+	{
+		"id": "18.5",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/suspense-lazy-and-transitions",
+		"kind": "explain",
+		"question": "The search input stutters while filtering 5,000 jobs in memory. Give two fixes and say when each is right.",
+		"codeContext": null,
+		"modelAnswer": "**Fix one — `useDeferredValue`.** The right default here. The input stays on `query` and the list reads the deferred copy, so keystrokes are never blocked and each in-progress filter render can be interrupted by the next character. It adapts to the device rather than assuming a delay.\n\n    \n**Fix two — `useDebounce`.** Right when the work is a request rather than a render: filtering on the server, or hitting a rate-limited API. There, not firing at all is the saving, and interruptibility does not help.\n\n    \n**Worth asking first:** whether 5,000 rows should be in the browser at all. Server-side filtering with pagination, or virtualization for the rendering cost, removes the problem rather than scheduling around it (see 23).",
+		"related": [
+			"react/data-and-architecture/suspense-lazy-and-transitions",
+			"react/production/large-lists-and-infinite-scroll"
+		]
+	},
+	{
+		"id": "18.6",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/suspense-lazy-and-transitions",
+		"kind": "explain",
+		"question": "Splitting a route means the user waits for a download when they click. What would you do about it, and what is the limit?",
+		"codeContext": null,
+		"modelAnswer": "Prefetch on intent. The lazy import is a function, so call it on `onMouseEnter` and `onFocus` for the link — the few hundred milliseconds between hover and click is often enough to have the chunk downloaded before the navigation begins, and `onFocus` covers keyboard users who never hover.\n\n    \nWorth checking the router first: React Router's framework mode and Next.js both prefetch route modules already, so hand-rolling it may be redundant.\n\n    \n**The limit:** prefetching spends bandwidth on things that may never be opened. On a list of fifty links, prefetching each on hover downloads most of the app as the user scans the page. Prefetch a small number of likely destinations, and consider the user on a metered connection.",
+		"related": ["react/data-and-architecture/suspense-lazy-and-transitions"]
+	},
+	{
+		"id": "18.7",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/suspense-lazy-and-transitions",
+		"kind": "explain",
+		"question": "A lazily loaded route fails to download on a flaky connection and the app shows the fallback forever. What is missing?",
+		"codeContext": null,
+		"modelAnswer": "An error boundary. Suspense handles \"not ready yet\" and has no concept of \"will never arrive\" — a rejected dynamic import throws, and with nothing to catch it the boundary keeps showing its fallback or the error reaches the top.\n\n    \nWrap the lazy route in an error boundary with a retry, so a failed chunk download offers the user a way to try again rather than a permanent spinner (see 19). Worth testing deliberately: it is easy to miss, and it happens to real users on poor connections and after a deploy replaces the chunk they were about to request.",
+		"related": [
+			"react/data-and-architecture/suspense-lazy-and-transitions",
+			"react/data-and-architecture/error-boundaries"
+		]
+	},
+	{
+		"id": "18.8",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/suspense-lazy-and-transitions",
+		"kind": "rapid",
+		"question": "In under a minute: when would you use useTransition rather than useDeferredValue?",
+		"codeContext": null,
+		"modelAnswer": "When you are the one triggering the update and want to mark it non-urgent — a filter change, a tab switch, a sort. You get `isPending`, which lets you dim the old content or show an inline indicator while the new render is in progress.\n\n    \n`useDeferredValue` suits the case where you do not control the update: a value arriving as a prop, or one whose setter must stay urgent because an input is bound to it. The input needs the immediate value; the expensive consumer takes the lagging one.",
+		"related": ["react/data-and-architecture/suspense-lazy-and-transitions"]
+	},
+	{
+		"id": "19.3",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/error-boundaries",
+		"kind": "explain",
+		"question": "A malformed salary field makes one job card throw, and the entire app goes blank. There is a boundary at the root. What would you change?",
+		"codeContext": null,
+		"modelAnswer": "The boundary is correct but far too high, so a single bad record takes down navigation, search and every other job on the page.\n\n    \nAdd boundaries closer to the failure. A per-route boundary keeps the navbar and lets the user go elsewhere. Better still here, wrap the individual card so one malformed job renders as a small \"could not display this listing\" tile while the other nineteen are fine.\n\n```jsx\n{jobs.map((job) => (\n  <ErrorBoundary key={job.id} FallbackComponent={CardError}>\n    <JobCard job={job} />\n  </ErrorBoundary>\n))}\n```\n\n    \nWorth also fixing the cause — a display component should not throw on unexpected data — but defensive placement is what stops one bad row from being an outage.",
+		"related": ["react/data-and-architecture/error-boundaries"]
+	},
+	{
+		"id": "19.4",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/error-boundaries",
+		"kind": "explain",
+		"question": "The fallback appears correctly, but after navigating to another page it is still showing. Explain and fix.",
+		"codeContext": null,
+		"modelAnswer": "A boundary latches: once it has caught an error it renders the fallback until something resets it. Navigation changes what is inside the boundary but does not clear its state.\n\n    \nGive it `resetKeys` containing something that changes on navigation, or key the boundary itself by route so a new route remounts it.\n\n```jsx\n<ErrorBoundary resetKeys={[location.pathname]} …>\n```",
+		"related": ["react/data-and-architecture/error-boundaries"]
+	},
+	{
+		"id": "19.5",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/error-boundaries",
+		"kind": "explain",
+		"question": "A form's submit handler throws on a network failure and nothing appears on screen. Explain why the boundary did not help, and what to do instead.",
+		"codeContext": null,
+		"modelAnswer": "The error happened in an event handler, which runs outside React's render, so no boundary is involved. It surfaces as an unhandled exception in the console and the user sees a button that appears to do nothing.\n\n```jsx\nconst submitForm = async (e) => {\n  e.preventDefault();\n  setStatus('submitting');\n\n  try {\n    await addJob(newJob);\n    setStatus('success');\n  } catch (err) {\n    setError('Could not save the job. Please try again.');\n    setStatus('error');\n  }\n};\n```\n\n    \nHandler errors are ordinary JavaScript errors and need ordinary handling: catch, put the failure in state, render it. A silent failure is the worst outcome of the three (see 7).",
+		"related": ["react/data-and-architecture/error-boundaries", "react/foundations/forms"]
+	},
+	{
+		"id": "19.6",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/error-boundaries",
+		"kind": "explain",
+		"question": "What is the difference between getDerivedStateFromError and componentDidCatch?",
+		"codeContext": null,
+		"modelAnswer": "`getDerivedStateFromError` is static, runs during the render phase, and may only return new state — so it decides what the user sees. Because render must stay pure, it is the wrong place for logging (see 10).\n\n    \n`componentDidCatch` runs after commit, where side effects are allowed, and receives an `info` object containing the component stack. That is where reporting to a monitoring service belongs, and the component stack is usually more useful for diagnosis than the JavaScript stack because it names the tree path to the failure.",
+		"related": [
+			"react/data-and-architecture/error-boundaries",
+			"react/how-react-works/the-rules-of-react"
+		]
+	},
+	{
+		"id": "19.7",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/error-boundaries",
+		"kind": "rapid",
+		"question": "In under a minute: how would you decide where to put error boundaries in an app you have just joined?",
+		"codeContext": null,
+		"modelAnswer": "Ask which parts of each page are independently valuable. Anywhere the answer is \"the rest of this page is still useful without it\", that region wants its own boundary.\n\n    \nIn practice that produces three layers: one at the root as a last resort, one per route so a broken page leaves navigation intact, and one around each risky widget — anything rendering third-party data, an embedded map or chart, or a list item whose data shape is not guaranteed.\n\n    \nThen check the two things that are usually missing: a retry in each fallback, and a reset on navigation so a stale fallback does not follow the user around.",
+		"related": ["react/data-and-architecture/error-boundaries"]
+	},
+	{
+		"id": "20.2",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/authentication-patterns",
+		"kind": "explain",
+		"question": "A reviewer says hiding the Delete button for non-admins secures the endpoint. Respond.",
+		"codeContext": null,
+		"modelAnswer": "It does not. The button is a hint about what the user can do, not a control over what they can do. Anyone can open devtools, call the endpoint directly, or modify the bundle. All of the app's JavaScript is on the client and none of it is trustworthy.\n\n    \nAuthorisation belongs on the server: the delete endpoint checks the caller's role and returns 403 otherwise. The hidden button is still worth doing — it stops honest users hitting errors — but it is user experience, not security.",
+		"related": ["react/data-and-architecture/authentication-patterns"]
+	},
+	{
+		"id": "20.3",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/authentication-patterns",
+		"kind": "explain",
+		"question": "After logging in, the user lands on the home page rather than the page they were trying to reach. Fix it.",
+		"codeContext": null,
+		"modelAnswer": "The attempted location is not being carried through the redirect.\n\n```jsx\n// in the guard\n<Navigate to=\"/login\" state={{ from: location }} replace />\n\n// in the login page, after a successful login\nconst from = location.state?.from?.pathname ?? '/';\nnavigate(from, { replace: true });\n```\n\n    \nBoth navigations use `replace`: the first so back does not return to the protected page, the second so back does not return to the login form. Without them the user can get stuck bouncing between the two.",
+		"related": ["react/data-and-architecture/authentication-patterns"]
+	},
+	{
+		"id": "20.4",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/authentication-patterns",
+		"kind": "explain",
+		"question": "Compare storing a session token in an httpOnly cookie versus localStorage. Give your default and the case for the other.",
+		"codeContext": null,
+		"modelAnswer": "**`httpOnly` cookie:** JavaScript cannot read it, so a script injection cannot exfiltrate the session. Sent automatically with requests. The cost is CSRF exposure, handled with `SameSite` and a CSRF token, and it is less convenient across origins.\n\n    \n**`localStorage`:** simple, survives refresh, works with a separate API domain, and the token is easy to attach as a header. The cost is that any script running on the page can read it — a compromised dependency, an injected script, an XSS hole — and a stolen token is a stolen account until it expires.\n\n    \n**Default: the cookie**, because the failure mode of the alternative is account takeover rather than a bug, and CSRF has well-established mitigations.\n\n    \n**The case for `localStorage`:** a separate API domain where cookies are awkward, mobile clients sharing the same auth flow, or a third-party identity provider whose SDK works that way. It is a defensible trade when made deliberately — with a short token lifetime and refresh handled carefully — and a liability when chosen because it was the first example in a tutorial.",
+		"related": ["react/data-and-architecture/authentication-patterns"]
+	},
+	{
+		"id": "20.5",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/authentication-patterns",
+		"kind": "explain",
+		"question": "A signed-in user without the admin role is redirected to the login page. What is wrong with that?",
+		"codeContext": null,
+		"modelAnswer": "It confuses two different failures. The user is authenticated — they know who they are and so does the app — they simply lack permission. Sending them to a login page suggests signing in again will help, which it will not, and they may log out and back in trying to fix it.\n\n    \nShow a \"you do not have access to this page\" screen with a way back to something they can use. Redirect to login only when there is no session at all.",
+		"related": ["react/data-and-architecture/authentication-patterns"]
+	},
+	{
+		"id": "20.6",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/authentication-patterns",
+		"kind": "explain",
+		"question": "A session expires while the user is working, and every request fails silently. What would you add?",
+		"codeContext": null,
+		"modelAnswer": "Central 401 handling. One wrapper around `fetch`, or an interceptor, that recognises the status, clears the auth state, and sends the user to log in with their current location carried through — so they return to where they were rather than the home page.\n\n    \nWorth pairing with a visible message, since an unexplained jump to the login screen looks like a bug. If the API issues refresh tokens, this is also the place to attempt a silent refresh once before giving up, so a routine expiry does not interrupt the user at all.",
+		"related": ["react/data-and-architecture/authentication-patterns"]
+	},
+	{
+		"id": "20.7",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/authentication-patterns",
+		"kind": "rapid",
+		"question": "In under a minute: when would you use withAuth rather than a guard route?",
+		"codeContext": null,
+		"modelAnswer": "When the thing being protected is a component rather than a route — a widget on a shared page, or a component rendered in several places that must always be guarded regardless of where it appears.\n\n    \nFor route groups, the guard layout is better: it appears once in the route configuration, so you can read the routes and see what is protected, rather than checking each page's export. Use the HOC as the exception, not the default.",
+		"related": ["react/data-and-architecture/authentication-patterns"]
+	},
+	{
+		"id": "21.2",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/project-structure",
+		"kind": "explain",
+		"question": "features/billing imports JobCard from features/jobs. Why is that a problem, and what are the options?",
+		"codeContext": null,
+		"modelAnswer": "It ties the two features together. Billing now breaks when jobs changes, neither can be understood or tested in isolation, and deleting the jobs feature becomes a refactor. Do it a few more times and the folder boundaries are decorative.\n\n    \n**Options:** promote `JobCard` to shared `components/` if it is genuinely generic — though a component named after another feature's domain usually is not. Extract the part that is shared, such as a generic `Card`, and keep the job-specific wrapper in jobs. Or have the page compose both features rather than one importing the other, passing the rendered card in as `children` (see 14).\n\n    \nThe last option is usually best: composition at the page level keeps features independent, and the page is the place that legitimately knows about both.",
+		"related": [
+			"react/data-and-architecture/project-structure",
+			"react/state-at-scale/state-beyond-one-component"
+		]
+	},
+	{
+		"id": "21.3",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/project-structure",
+		"kind": "explain",
+		"question": "A team adds an index.js to every folder. Dev-server startup gets slower and the bundle grows. Explain.",
+		"codeContext": null,
+		"modelAnswer": "Importing one name from a barrel evaluates the barrel, which imports every module it re-exports, which pulls in their imports in turn. In development that means the dev server transforms far more files than the page needs. In the bundle it can defeat tree-shaking — anything with a side effect at module scope cannot be dropped, so unused code ships.\n\n    \nImport from files directly and keep barrels for deliberate public boundaries, where the convenience is worth the cost.",
+		"related": ["react/data-and-architecture/project-structure"]
+	},
+	{
+		"id": "21.5",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/project-structure",
+		"kind": "explain",
+		"question": "Your product manager wants to switch analytics vendors. What determines whether that is an afternoon or a fortnight?",
+		"codeContext": null,
+		"modelAnswer": "Whether the SDK was wrapped. If every component imports the vendor directly, the change is a search-and-replace across hundreds of call sites, each needing review because the new API differs.\n\n    \nIf one `lib/analytics.js` owns it and everything else calls `track(event, properties)`, the change is that one file plus its tests. That is the entire argument for wrapping things you might replace — and equally the argument for not wrapping things you will not, since a wrapper you never swap is just indirection.",
+		"related": ["react/data-and-architecture/project-structure"]
+	},
+	{
+		"id": "21.6",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/project-structure",
+		"kind": "explain",
+		"question": "A new joiner is asked to fix a bug in job filtering. Describe how they would find the code in each structure.",
+		"codeContext": null,
+		"modelAnswer": "**Feature-based:** open `features/jobs`, and everything is there — the filter component, the hook, the API call, the tests. One folder, maybe seven files, all relevant.\n\n    \n**Type-based:** find `JobFilters` in a `components` folder of sixty files, follow the import to a hook in `hooks`, follow that to a call in `api`, and check whether the page in `pages` does anything relevant. Four folders, and at each step most of what they see is unrelated.\n\n    \nThe difference is small at ten components and decisive at a hundred, which is why the recommendation is to start simple and move when navigation starts costing time.",
+		"related": ["react/data-and-architecture/project-structure"]
+	},
+	{
+		"id": "21.7",
+		"chapterId": "react/data-and-architecture",
+		"noteId": "react/data-and-architecture/project-structure",
+		"kind": "rapid",
+		"question": "In under a minute: when would you restructure an existing project from type-based to feature-based, and how would you do it?",
+		"codeContext": null,
+		"modelAnswer": "**When:** a folder is hard to scan — roughly fifteen-plus files — or when routine changes keep touching four folders, or when a new joiner cannot find things without help. Not on a schedule, and not because an article recommended it.\n\n    \n**How:** incrementally, one feature at a time, starting with the area under active development. Create `features/jobs`, move only the files that clearly belong to it, fix the imports, ship it. Leave everything else where it is; a codebase with two conventions during a migration is fine, and a big-bang restructure creates an unreviewable diff and merge conflicts for everyone.",
+		"related": ["react/data-and-architecture/project-structure"]
+	},
+	{
+		"id": "22.3",
+		"chapterId": "react/production",
+		"noteId": "react/production/performance",
+		"kind": "explain",
+		"question": "Typing in a search box re-renders a list of 200 cards, and the page stutters. Give three fixes in the order you would try them.",
+		"codeContext": null,
+		"modelAnswer": "**First, move the state down.** If the list does not use the query, the input and its state belong in their own component, and the list stops re-rendering entirely (see 14). This is free and removes the problem rather than managing it.\n\n    \n**Second, if the list does use the query, defer it.** `useDeferredValue` keeps the input responsive and lets React interrupt the list render (see 18).\n\n    \n**Third, memoize the card** — `memo` on `JobCard` plus a stable `onSelect` — so unchanged cards skip their work.\n\n    \nAnd if 200 becomes 5,000, none of these is the answer: the cost is the DOM nodes, and the fix is virtualization or pagination (see 23).",
+		"related": [
+			"react/production/performance",
+			"react/state-at-scale/state-beyond-one-component",
+			"react/data-and-architecture/suspense-lazy-and-transitions",
+			"react/production/large-lists-and-infinite-scroll"
+		]
+	},
+	{
+		"id": "22.4",
+		"chapterId": "react/production",
+		"noteId": "react/production/performance",
+		"kind": "explain",
+		"question": "A colleague reports the app is fast after adding memo to forty components. What would you check?",
+		"codeContext": null,
+		"modelAnswer": "Whether it was measured, and against what. Blanket memoization usually makes things marginally slower, so a reported improvement is often either measured in development, or attributable to something else changed at the same time.\n\n    \nI would profile a production build before and after, with CPU throttling, and look at what actually renders using highlight updates. Then check whether the memos can even succeed — if the props include inline objects or handlers, they are doing nothing but adding comparisons. Usually a handful of components are worth memoizing and the rest is noise that will make future changes harder to reason about.",
+		"related": ["react/production/performance"]
+	},
+	{
+		"id": "22.5",
+		"chapterId": "react/production",
+		"noteId": "react/production/performance",
+		"kind": "diagnose",
+		"question": "This useMemo is not there for speed. Why is it there?",
+		"codeContext": "const value = useMemo(() => {\n  return { user, login, logout };\n}, [user]);\n\n<AuthContext.Provider value={value}>",
+		"modelAnswer": "For identity, not speed. Building the object is trivially cheap; the point is that without the memo it is a new object on every render of the provider, so every context consumer re-renders even when `user` has not changed (see 14).\n\n    \nThis is the distinction worth being able to state: `useMemo` for expensive computations is an optimisation you should measure, and `useMemo` for stable identity is about behaviour — dependency arrays, context values, memoized children — and applies regardless of cost.",
+		"related": [
+			"react/production/performance",
+			"react/state-at-scale/state-beyond-one-component"
+		]
+	},
+	{
+		"id": "22.6",
+		"chapterId": "react/production",
+		"noteId": "react/production/performance",
+		"kind": "explain",
+		"question": "Does React Compiler make this chapter unnecessary?",
+		"codeContext": null,
+		"modelAnswer": "It removes most of the manual memoization, and not the understanding. You still need to know why a component re-rendered, because the compiler skips work inside components rather than preventing renders — state in the wrong place is still state in the wrong place.\n\n    \nIt also depends on the Rules of React being followed: where it cannot prove a component is safe it bails out silently, so knowing what makes a component analysable now matters more, not less. And it does nothing for the two costs that hurt most in practice, DOM node count and bundle size.",
+		"related": ["react/production/performance"]
+	},
+	{
+		"id": "22.7",
+		"chapterId": "react/production",
+		"noteId": "react/production/performance",
+		"kind": "rapid",
+		"question": "In under a minute: a page takes four seconds to become interactive on a phone, though renders are fast once loaded. Where would you look?",
+		"codeContext": null,
+		"modelAnswer": "Not at rendering — at what is downloaded and parsed before rendering can start. I would look at bundle size first: run an analyser, check for a large library imported whole, an icon set pulled in entirely, or a date library that could be replaced.\n\n    \nThen splitting: routes behind `lazy`, heavy components behind the interaction that needs them (see 18). Then the network shape — whether data fetching starts only after the bundle loads and the component mounts, which adds a round trip that a loader or a preload would remove.\n\n    \nMemoization would not help here at all, which is the point of measuring first.",
+		"related": [
+			"react/production/performance",
+			"react/data-and-architecture/suspense-lazy-and-transitions"
+		]
+	},
+	{
+		"id": "23.3",
+		"chapterId": "react/production",
+		"noteId": "react/production/large-lists-and-infinite-scroll",
+		"kind": "diagnose",
+		"question": "Scrolling to the bottom loads the same page three or four times. Find the cause.",
+		"codeContext": "const observer = new IntersectionObserver((entries) => {\n  if (entries[0].isIntersecting) {\n    fetchNextPage();\n  }\n});",
+		"modelAnswer": "Nothing prevents the observer from firing while a request is already in flight. The sentinel stays visible until new rows push it down, so every scroll event that keeps it intersecting triggers another fetch.\n\n```jsx\nuseIntersection(sentinelRef, fetchNextPage, hasNextPage && !isFetchingNextPage);\n```\n\n    \nGuard on both conditions: stop when there is nothing more to load, and stop while loading. Without the second, the duplicate requests may also arrive out of order and produce repeated rows.",
+		"related": ["react/production/large-lists-and-infinite-scroll"]
+	},
+	{
+		"id": "23.4",
+		"chapterId": "react/production",
+		"noteId": "react/production/large-lists-and-infinite-scroll",
+		"kind": "explain",
+		"question": "A team memoized every row component and the list is still slow at 5,000 items. Explain why, and what to do.",
+		"codeContext": null,
+		"modelAnswer": "Memoization stops components re-rendering. It does not reduce how many exist. All 5,000 rows are still mounted, so layout, paint and memory are unchanged, and the first render — the slowest moment — is exactly as slow as before.\n\n    \nThe fix is to render fewer nodes: virtualize, paginate, or move filtering to the server so fewer rows arrive. If the list is only a few hundred rows, `content-visibility: auto` may be enough on its own.\n\n    \nThis is a good example of the pattern from chapter 22 — a real problem, a plausible-looking fix, and no measurement to connect the two.",
+		"related": ["react/production/large-lists-and-infinite-scroll"]
+	},
+	{
+		"id": "23.5",
+		"chapterId": "react/production",
+		"noteId": "react/production/large-lists-and-infinite-scroll",
+		"kind": "explain",
+		"question": "Users report that items sometimes appear twice while scrolling a feed, and sometimes one is missed. What is the likely cause and the fix?",
+		"codeContext": null,
+		"modelAnswer": "Offset-based paging on data that changes underneath. If a new job is inserted between requesting page 1 and page 2, everything shifts by one: the last item of page 1 becomes the first of page 2 and appears twice. A deletion shifts the other way and an item is skipped entirely.\n\n    \nSwitch to cursor paging: each page asks for what comes after a specific item, so insertions and deletions elsewhere do not affect the boundary. The cost is losing page numbers, which a feed does not need anyway.",
+		"related": ["react/production/large-lists-and-infinite-scroll"]
+	},
+	{
+		"id": "23.6",
+		"chapterId": "react/production",
+		"noteId": "react/production/large-lists-and-infinite-scroll",
+		"kind": "explain",
+		"question": "A product owner asks for infinite scroll on a job search page. Give your recommendation and reasoning.",
+		"codeContext": null,
+		"modelAnswer": "**Recommendation: \"load more\" rather than automatic infinite scroll**, unless the page is explicitly a feed.\n\n    \nA job search is a task, not browsing. Users compare results, go back to ones they saw earlier, and want to send links to colleagues — all of which pagination or a URL-driven page number supports and infinite scroll does not. The footer becomes unreachable, which matters if it holds contact or legal links. The back button loses their position unless it is explicitly restored. And crawlers may never see results past the first page.\n\n    \n\"Load more\" keeps the loading behaviour they want — no page reloads, results appended — while keeping the footer reachable and giving a natural stopping point. If they want the feed feel specifically, it can be added later on top of the same paged data.",
+		"related": ["react/production/large-lists-and-infinite-scroll"]
+	},
+	{
+		"id": "23.7",
+		"chapterId": "react/production",
+		"noteId": "react/production/large-lists-and-infinite-scroll",
+		"kind": "rapid",
+		"question": "In under a minute: how would you approach \"render a list of ten thousand items\" in an interview?",
+		"codeContext": null,
+		"modelAnswer": "Start by questioning the requirement: does the user need all ten thousand at once, or is this a search or a report where filtering and pagination on the server is the real answer? That is usually the strongest response, and it shows you think about the problem rather than only the technique.\n\n    \nIf they must all be available, explain what is actually slow — DOM nodes, layout and paint, not React's diff — then describe virtualization: render the visible window plus overscan, with a spacer providing the full scroll height.\n\n    \nThen name the trade-offs, because that is what separates a memorised answer from a considered one: find-in-page stops working, scroll restoration has to be handled explicitly, variable heights complicate measurement, and keyboard and screen reader behaviour needs attention.",
+		"related": ["react/production/large-lists-and-infinite-scroll"]
+	},
+	{
+		"id": "24.3",
+		"chapterId": "react/production",
+		"noteId": "react/production/component-patterns",
+		"kind": "diagnose",
+		"question": "Rewrite this so a caller can put anything in the body, including a form.",
+		"codeContext": "<Modal\n  title=\"Delete job\"\n  body=\"This cannot be undone.\"\n  confirmLabel=\"Delete\"\n  onConfirm={remove}\n/>",
+		"modelAnswer": "```jsx\n<Modal onClose={close}>\n  <Modal.Header>Delete job</Modal.Header>\n\n  <Modal.Body>\n    <p>This cannot be undone.</p>\n    <ReasonForm />\n  </Modal.Body>\n\n  <Modal.Footer>\n    <Button onClick={close}>Cancel</Button>\n    <Button variant=\"danger\" onClick={remove}>Delete</Button>\n  </Modal.Footer>\n</Modal>\n```\n\n    \n`Modal` keeps everything that is genuinely its job — the overlay, focus trap, escape handling, the portal — and stops deciding what the content is. A simple confirmation is barely longer to write, and complex cases become possible without touching the component.",
+		"related": ["react/production/component-patterns"]
+	},
+	{
+		"id": "24.4",
+		"chapterId": "react/production",
+		"noteId": "react/production/component-patterns",
+		"kind": "explain",
+		"question": "A Tabs component only supports activeTab and onTabChange. What is the cost, and what would you add?",
+		"codeContext": null,
+		"modelAnswer": "Every caller must hold state for it, even when they only want tabs that work. That is boilerplate in six places and an opportunity to get it wrong in each.\n\n    \nAdd an uncontrolled mode: `defaultTab` plus internal state, with `onTabChange` still firing so callers can observe changes without owning them. Detect the mode by whether `activeTab` is defined, and keep it fixed for the component's lifetime.\n\n    \nThis is the pattern every component library uses for inputs, selects, dialogs and accordions, and following the `defaultX` / `X` + `onXChange` naming means callers already know how it behaves.",
+		"related": ["react/production/component-patterns"]
+	},
+	{
+		"id": "24.5",
+		"chapterId": "react/production",
+		"noteId": "react/production/component-patterns",
+		"kind": "explain",
+		"question": "Someone proposes replacing all custom hooks with HOCs for consistency. Respond.",
+		"codeContext": null,
+		"modelAnswer": "It would make the codebase worse in several specific ways: an extra component in the tree per wrapper, so DevTools becomes a stack of wrappers; prop-name collisions once two HOCs inject the same name; no way to tell inside a component where an injected prop came from; and harder typing.\n\n    \nHooks exist because of those problems. The consistency argument is real but points the other way — hooks are the default, and HOCs the documented exception for cases where the wrapper must control rendering, such as `withAuth`. Consistency achieved by adopting the worse tool everywhere is not a gain.",
+		"related": ["react/production/component-patterns"]
+	},
+	{
+		"id": "24.6",
+		"chapterId": "react/production",
+		"noteId": "react/production/component-patterns",
+		"kind": "explain",
+		"question": "Using <Tabs.Panel> outside <Tabs> crashes with \"cannot read properties of null\". What would you add and why?",
+		"codeContext": null,
+		"modelAnswer": "A guard in the context hook that throws a sentence describing the mistake.\n\n```jsx\nconst useTabs = () => {\n  const context = useContext(TabsContext);\n\n  if (context === null) {\n    throw new Error('Tabs parts must be used inside <Tabs>');\n  }\n\n  return context;\n};\n```\n\n    \nThe default null value gives an error pointing at a line inside your component that mentions nothing about the real problem. Since this is a mistake every new user of the component will make at least once, the error message is part of the component's interface.",
+		"related": ["react/production/component-patterns"]
+	},
+	{
+		"id": "24.7",
+		"chapterId": "react/production",
+		"noteId": "react/production/component-patterns",
+		"kind": "explain",
+		"question": "A colleague says \"we should use Redux instead of custom hooks.\" Respond.",
+		"codeContext": null,
+		"modelAnswer": "They are not alternatives. A custom hook is a way to reuse stateful logic; Redux is a place to keep shared state and a discipline for updating it. You would still write hooks in a Redux app — `useSelector` and `useDispatch` are hooks, and most teams wrap them in their own.\n\n    \nThe useful question underneath is probably one of two things. If it is \"should this state be shared\", that is context versus a store versus lifting (see 14, 15). If it is \"our hooks each fetch their own copy and they disagree\", that is a caching problem and the answer is a query library, not Redux (see 13, 16).\n\n    \nWorth separating the two comparisons out loud: hook against HOC for logic reuse, context against a store for shared state. Mixing them is how teams end up putting server data in Redux because someone framed it as a hooks-versus-Redux choice.",
+		"related": [
+			"react/production/component-patterns",
+			"react/effects-and-refs/custom-hooks",
+			"react/state-at-scale/state-beyond-one-component",
+			"react/state-at-scale/redux-toolkit",
+			"react/data-and-architecture/data-fetching"
+		]
+	},
+	{
+		"id": "24.8",
+		"chapterId": "react/production",
+		"noteId": "react/production/component-patterns",
+		"kind": "rapid",
+		"question": "In under a minute: you need the same auth check on six pages. Hook or HOC, and why?",
+		"codeContext": null,
+		"modelAnswer": "Neither, first choice: if the six pages are routes, a guard layout route wraps all of them, and the check appears once in the route configuration where it is visible (see 17, 20).\n\n    \nIf they are not routes — components rendered in various places that must always be guarded — then an HOC, because the guard needs to prevent rendering and redirect, which a hook called inside the component cannot do. A hook can tell the component the user is missing, but the component then has to act on it correctly every time, which is six chances to forget.",
+		"related": [
+			"react/production/component-patterns",
+			"react/data-and-architecture/routing-with-react-router",
+			"react/data-and-architecture/authentication-patterns"
+		]
+	},
+	{
+		"id": "25.3",
+		"chapterId": "react/production",
+		"noteId": "react/production/portals-modals-and-accessibility",
+		"kind": "explain",
+		"question": "Name the six behaviours a modal needs, and say which is most often missing.",
+		"codeContext": null,
+		"modelAnswer": "Focus moves in on open; Tab is trapped inside; Escape closes it; focus returns to the trigger on close; the background is inert and unscrollable; and it is announced as a dialog with an accessible name.\n\n    \n**Most often missing: returning focus to the trigger.** It is invisible with a mouse, so it survives review, and it leaves keyboard users at the top of the document after every dialog — tabbing back through the entire page to resume what they were doing.\n\n    \nSecond most common is a background that is visually dimmed but still reachable by Tab.",
+		"related": ["react/production/portals-modals-and-accessibility"]
+	},
+	{
+		"id": "25.4",
+		"chapterId": "react/production",
+		"noteId": "react/production/portals-modals-and-accessibility",
+		"kind": "diagnose",
+		"question": "What is wrong with this, and what would you write instead?",
+		"codeContext": "<div className=\"btn\" onClick={handleApply}>Apply now</div>",
+		"modelAnswer": "It looks like a button and behaves like text. It cannot be focused, does not respond to Enter or Space, is announced as nothing in particular, and is unreachable by keyboard.\n\n```jsx\n<button className=\"btn\" onClick={handleApply}>Apply now</button>\n```\n\n    \nMaking the `div` work would mean adding `role=\"button\"`, `tabIndex={0}`, and handlers for both Enter and Space — reimplementing the element badly. If the styling is the objection, reset the button's default styles; that is one CSS rule against four lines of behaviour you would otherwise maintain.",
+		"related": ["react/production/portals-modals-and-accessibility"]
+	},
+	{
+		"id": "25.5",
+		"chapterId": "react/production",
+		"noteId": "react/production/portals-modals-and-accessibility",
+		"kind": "explain",
+		"question": "A designer asks to remove focus outlines because they look untidy. Respond.",
+		"codeContext": null,
+		"modelAnswer": "Agree with the concern and reject the solution. The outline exists so keyboard users can see where they are; removing it makes the interface unusable for them, and for anyone who cannot use a mouse precisely.\n\n    \n`:focus-visible` resolves the disagreement: the browser shows the indicator for keyboard interaction and hides it for mouse clicks, which is what the designer is actually objecting to. Then design a focus style that fits — a ring in the brand colour, an offset outline — rather than removing it. It has to be clearly visible against every background it appears on.",
+		"related": ["react/production/portals-modals-and-accessibility"]
+	},
+	{
+		"id": "25.6",
+		"chapterId": "react/production",
+		"noteId": "react/production/portals-modals-and-accessibility",
+		"kind": "explain",
+		"question": "Search results update as the user types, and a screen reader user has no idea anything changed. What would you add?",
+		"codeContext": null,
+		"modelAnswer": "A live region announcing the count.\n\n```jsx\n<div role=\"status\" aria-live=\"polite\">\n  {results.length} jobs found\n</div>\n```\n\n    \nUse `polite` so it waits for a pause rather than interrupting mid-word — `alert` is for errors. Render the element always and let its content change; adding the whole element at the same moment as the text often results in nothing being announced.\n\n    \nWith results updating on every keystroke, debounce what the region says so it announces a settled count rather than every intermediate one (see 13).",
+		"related": [
+			"react/production/portals-modals-and-accessibility",
+			"react/effects-and-refs/custom-hooks"
+		]
+	},
+	{
+		"id": "25.7",
+		"chapterId": "react/production",
+		"noteId": "react/production/portals-modals-and-accessibility",
+		"kind": "rapid",
+		"question": "In under a minute: how would you check a new feature is accessible, without specialist tools?",
+		"codeContext": null,
+		"modelAnswer": "Put the mouse away and use the feature entirely by keyboard. Can you reach everything with Tab, see where focus is at all times, operate controls with Enter and Space, close dialogs with Escape, and does focus land somewhere sensible afterwards? That single pass catches most real problems.\n\n    \nThen check the markup for the obvious things: is everything clickable a `button` or `a`, does every input have a label, do icon-only buttons have an accessible name, and are headings in a sensible order.\n\n    \nThen turn on the built-in screen reader and listen to the flow. Automated tools such as axe and the a11y lint rules are worth running, but they cannot tell you that focus went nowhere after closing a dialog — the keyboard pass can.",
+		"related": ["react/production/portals-modals-and-accessibility"]
+	},
+	{
+		"id": "26.3",
+		"chapterId": "react/production",
+		"noteId": "react/production/typescript-with-react",
+		"kind": "diagnose",
+		"question": "Type this component's props, including a variant with three options and a callback receiving the id.",
+		"codeContext": "const JobCard = ({ job, onSelect, variant = 'full' }) => { … };",
+		"modelAnswer": "```jsx\ninterface JobCardProps {\n  job: Job;\n  onSelect: (id: string) => void;\n  variant?: 'compact' | 'full' | 'detailed';\n}\n\nconst JobCard = ({ job, onSelect, variant = 'full' }: JobCardProps) => { … };\n```\n\n    \n`variant` is optional because it has a default. The union means an invalid variant is caught at the call site with autocomplete offering the valid ones, and the callback signature documents that the parent gets an id rather than the whole job.",
+		"related": ["react/production/typescript-with-react"]
+	},
+	{
+		"id": "26.4",
+		"chapterId": "react/production",
+		"noteId": "react/production/typescript-with-react",
+		"kind": "diagnose",
+		"question": "Explain what is wrong with this, and what you would do instead.",
+		"codeContext": "const res = await fetch('/api/jobs');\nconst jobs = (await res.json()) as Job[];",
+		"modelAnswer": "`res.json()` returns `any`, so the assertion is a claim with nothing behind it. Nothing checks the response actually matches `Job[]`. If the API renames or removes a field, TypeScript reports no error and the failure appears at runtime, somewhere unrelated to the fetch.\n\n    \nValidate at the boundary instead, so the shape is checked where the data enters:\n\n```jsx\nconst JobSchema = z.object({\n  id: z.string(),\n  title: z.string(),\n  type: z.enum(['Full-Time', 'Part-Time', 'Remote', 'Internship']),\n});\n\nconst jobs = z.array(JobSchema).parse(await res.json());\n```\n\n    \nThe type is derived from the schema, so there is one definition rather than two that can drift. A malformed response now fails immediately with a message naming the field, which is a far better failure than a card rendering `undefined`.",
+		"related": ["react/production/typescript-with-react"]
+	},
+	{
+		"id": "26.5",
+		"chapterId": "react/production",
+		"noteId": "react/production/typescript-with-react",
+		"kind": "diagnose",
+		"question": "Every consumer of this context has to check for null. Fix it.",
+		"codeContext": "const AuthContext = createContext<AuthContextValue | null>(null);\n\nexport const useAuth = () => useContext(AuthContext);",
+		"modelAnswer": "```jsx\nexport const useAuth = (): AuthContextValue => {\n  const context = useContext(AuthContext);\n\n  if (context === null) {\n    throw new Error('useAuth must be used inside AuthProvider');\n  }\n\n  return context;\n};\n```\n\n    \nThe throw narrows the type: after it, TypeScript knows `context` is not null, so the return type is non-nullable and no consumer needs a check.\n\n    \nThis gets two things at once — a readable runtime error when the provider is missing, and a clean type for every caller — which is why it is the standard shape for a context hook (see 14).",
+		"related": [
+			"react/production/typescript-with-react",
+			"react/state-at-scale/state-beyond-one-component"
+		]
+	},
+	{
+		"id": "26.6",
+		"chapterId": "react/production",
+		"noteId": "react/production/typescript-with-react",
+		"kind": "explain",
+		"question": "Why is a discriminated union better than { type: string; payload?: unknown } for reducer actions?",
+		"codeContext": null,
+		"modelAnswer": "Because it lets TypeScript narrow. With a discriminated union, the `type` field tells the compiler which variant it is inside each `case`, so `action.id` exists in `'deleted'` and is an error in `'added'`. Dispatching an action with a missing or misspelled field fails at the call site.\n\n    \nWith `{ type: string; payload?: unknown }` every action looks the same, so the reducer has to assert what `payload` is in each branch — and those assertions are unchecked, which is the situation the types were meant to prevent. A union also makes a `switch` exhaustive: add a fourth action and every switch that does not handle it fails to compile.",
+		"related": ["react/production/typescript-with-react"]
+	},
+	{
+		"id": "26.7",
+		"chapterId": "react/production",
+		"noteId": "react/production/typescript-with-react",
+		"kind": "explain",
+		"question": "A colleague adds as any to clear a build error before a release. Respond.",
+		"codeContext": null,
+		"modelAnswer": "The build error is the compiler reporting a real inconsistency; `as any` removes the report, not the inconsistency. Whatever was wrong now fails at runtime instead, probably for a user, and probably somewhere that does not point back to this line.\n\n    \nWorth asking what the error actually said, because it usually indicates one of two things: the type is wrong and should be corrected, or the value genuinely can be something unexpected and needs a check. Both take minutes.\n\n    \nIf it truly cannot be resolved before the release, a narrow assertion with a comment explaining why is far better than `any` — it limits the damage to one value and leaves a note for whoever finds it later. But the honest framing is that this is deferred work, not resolved work.",
+		"related": ["react/production/typescript-with-react"]
+	},
+	{
+		"id": "26.8",
+		"chapterId": "react/production",
+		"noteId": "react/production/typescript-with-react",
+		"kind": "rapid",
+		"question": "In under a minute: what would you type first when adding TypeScript to an existing React codebase?",
+		"codeContext": null,
+		"modelAnswer": "The domain types — the shapes that flow through the whole app, such as `Job`, `Company` and `User`. Everything else derives from them, so they give the most benefit per line, and they immediately catch the common mistakes: a missing field, a misspelled property, a component expecting a job and given an id.\n\n    \nThen the boundaries where data enters: API responses, form values, URL parameters. Those are where wrong assumptions come from, and validating there catches problems before they spread.\n\n    \nComponents come last and mostly type themselves once the domain exists. Convert file by file — `allowJs` in `tsconfig` lets typed and untyped files coexist — rather than in one pass, and start with the code under active development so the types earn their keep immediately.",
+		"related": ["react/production/typescript-with-react"]
+	},
+	{
+		"id": "27.3",
+		"chapterId": "react/production",
+		"noteId": "react/production/testing",
+		"kind": "diagnose",
+		"question": "This test passes today and will break on the next refactor. Rewrite it.",
+		"codeContext": "test('sets showFull to true on click', () => {\n  const { container } = render(<JobCard job={job} />);\n  const button = container.querySelector('.toggle-btn');\n  fireEvent.click(button);\n  expect(container.querySelector('.description-full')).toBeTruthy();\n});",
+		"modelAnswer": "It reaches into the DOM by class name and asserts on internal naming, so renaming a class breaks it even though the behaviour is unchanged. The test name also describes state rather than behaviour.\n\n```jsx\ntest('shows the full description when More is clicked', async () => {\n  const user = userEvent.setup();\n  render(<JobCard job={job} />);\n\n  expect(screen.queryByText(job.description)).not.toBeInTheDocument();\n\n  await user.click(screen.getByRole('button', { name: 'More' }));\n\n  expect(screen.getByText(job.description)).toBeInTheDocument();\n});\n```\n\n    \nNow it asserts what the user sees before and after. Rename the class, switch to a different styling approach, or move the state into a reducer — it still passes.",
+		"related": ["react/production/testing"]
+	},
+	{
+		"id": "27.4",
+		"chapterId": "react/production",
+		"noteId": "react/production/testing",
+		"kind": "explain",
+		"question": "A test fails intermittently with \"not wrapped in act(...)\". What is happening, and how would you fix it?",
+		"codeContext": null,
+		"modelAnswer": "A state update happened after the test finished — usually a fetch resolving or a timer firing once the assertions had already run and the component was being torn down.\n\n    \nThe fix is to wait for the thing that causes the update, so it happens inside the test: `await screen.findByText(…)` for something that appears, or `await waitFor(…)` for an assertion that is not a query. Wrapping calls in `act` by hand suppresses the warning without changing the race, which is why it usually stays flaky afterwards.\n\n    \nIntermittent failures are the clue: the outcome depends on whether the promise resolved before or after teardown, which is timing-dependent.",
+		"related": ["react/production/testing"]
+	},
+	{
+		"id": "27.5",
+		"chapterId": "react/production",
+		"noteId": "react/production/testing",
+		"kind": "explain",
+		"question": "A test for a failed request times out after five seconds instead of showing the error. Why?",
+		"codeContext": null,
+		"modelAnswer": "The query client is retrying. By default a failed query is attempted several times with increasing delays, so the error state does not appear until they are exhausted — longer than the test's timeout.\n\n```jsx\nnew QueryClient({\n  defaultOptions: { queries: { retry: false } },\n});\n```\n\n    \nRetries are good in production and unhelpful in tests, where you want the failure immediately. Worth putting in the shared render helper so nobody has to remember it.",
+		"related": ["react/production/testing"]
+	},
+	{
+		"id": "27.6",
+		"chapterId": "react/production",
+		"noteId": "react/production/testing",
+		"kind": "explain",
+		"question": "Why mock at the network layer rather than replacing the fetching hook?",
+		"codeContext": null,
+		"modelAnswer": "Because mocking the hook removes the code you wanted to test. If `useJobs` is replaced with a stub, the test never exercises the query key, the fetch, the error handling or the loading state — the parts most likely to be wrong.\n\n    \nIntercepting at the network layer leaves everything running as it does in production, and the mock does not need updating when the hook is refactored. The same handlers can also run in the browser during development, so there is one definition of what the API returns rather than two that drift apart.",
+		"related": ["react/production/testing"]
+	},
+	{
+		"id": "27.7",
+		"chapterId": "react/production",
+		"noteId": "react/production/testing",
+		"kind": "explain",
+		"question": "A team has 90% coverage and still ships bugs regularly. What would you look at?",
+		"codeContext": null,
+		"modelAnswer": "What the tests assert, not how many lines they touch. Coverage measures execution, not verification — a test that renders every component and asserts nothing meaningful reports high coverage and catches nothing.\n\n    \nI would look for the usual pattern: many shallow unit tests of individual components, few tests of complete flows, and error and empty paths untested. Bugs tend to live in the joins — a form that submits the wrong shape, a mutation that does not invalidate its cache, a guard that redirects too early — and none of those appear in a component rendered in isolation.\n\n    \nThe practical move is to write an integration test for each recent bug, which both prevents the regression and shows what the suite is missing.",
+		"related": ["react/production/testing"]
+	},
+	{
+		"id": "27.8",
+		"chapterId": "react/production",
+		"noteId": "react/production/testing",
+		"kind": "rapid",
+		"question": "In under a minute: what would you test for the job board's add-job form, and what would you leave alone?",
+		"codeContext": null,
+		"modelAnswer": "**Test:** filling in the fields and submitting produces a success message and the expected payload; submitting with a required field empty shows the validation message and does not send anything; a failing request shows an error and leaves the entered values intact; and the submit button is disabled while the request is in flight, so a double click cannot send twice.\n\n    \n**Leave alone:** that each input's value updates as you type — that is React's job, not the form's logic. The exact wording of labels, unless they are the accessible name being queried. Layout and classes. And the API itself, which belongs in the back end's tests.\n\n    \nThe through-line: test the decisions the form makes, not the mechanics it delegates.",
+		"related": ["react/production/testing"]
+	},
+	{
+		"id": "28.2",
+		"chapterId": "react/production",
+		"noteId": "react/production/building-under-time-pressure",
+		"kind": "explain",
+		"question": "In the hand-rolled virtual list, what does the inner div with height: total do?",
+		"codeContext": null,
+		"modelAnswer": "It gives the scroll container the height the full list would have, so the scrollbar is the right size and scrolling reaches the end. Without it the container is only as tall as the twenty rendered rows, and there is nothing to scroll.\n\n    \nThe rows are absolutely positioned inside it at their true offsets, so each one appears where it would have been if all ten thousand existed.",
+		"related": ["react/production/building-under-time-pressure"]
+	},
+	{
+		"id": "28.3",
+		"chapterId": "react/production",
+		"noteId": "react/production/building-under-time-pressure",
+		"kind": "explain",
+		"question": "Pressing Enter in the autocomplete sometimes selects the wrong job. What is the likely cause?",
+		"codeContext": null,
+		"modelAnswer": "The active index is not reset when the results change. The user arrows down to the third item, types another character, a new shorter list arrives, and `active` is still 2 — pointing at a different job, or past the end of the array.\n\n```jsx\nuseEffect(() => {\n  setActive(-1);\n}, [results]);\n```\n\n    \nOr reset it in the same place the results are set. Either way it is the kind of bug that only appears when typing quickly, which is exactly how users type.",
+		"related": ["react/production/building-under-time-pressure"]
+	},
+	{
+		"id": "28.4",
+		"chapterId": "react/production",
+		"noteId": "react/production/building-under-time-pressure",
+		"kind": "explain",
+		"question": "You are asked to build a modal and have ten minutes left after it renders and closes on Escape. What do you do next, and what do you say?",
+		"codeContext": null,
+		"modelAnswer": "**Focus first:** move focus into the dialog on open, and restore it to the trigger on close. Two lines each, and they are the difference between a dialog a keyboard user can use and one that strands them at the top of the document.\n\n    \n**Then the trap** if time allows.\n\n    \n**What to say:** that a production version would use the native `<dialog>` element or a headless library, because trapping focus correctly involves more edge cases than are worth hand-rolling — and that you are writing it manually here because that is what was asked. Naming the production choice while demonstrating you can do it by hand is a better answer than either alone.",
+		"related": ["react/production/building-under-time-pressure"]
+	},
+	{
+		"id": "28.5",
+		"chapterId": "react/production",
+		"noteId": "react/production/building-under-time-pressure",
+		"kind": "explain",
+		"question": "Why is tabIndex={isActive ? 0 : -1} on each tab, rather than leaving them all focusable?",
+		"codeContext": null,
+		"modelAnswer": "Because a tablist is one stop in the tab order, not one per tab. Tab moves into the tablist and out of it; arrow keys move between the tabs. With every tab focusable, a keyboard user has to tab through all of them to reach the panel.\n\n    \nThis is the roving tabindex pattern, and it applies to toolbars, menus and radio groups too. Implementing it means also handling arrow keys and moving focus to the newly active tab — worth mentioning even if you do not have time to write it.",
+		"related": ["react/production/building-under-time-pressure"]
+	},
+	{
+		"id": "28.6",
+		"chapterId": "react/production",
+		"noteId": "react/production/building-under-time-pressure",
+		"kind": "rapid",
+		"question": "In under a minute: you are asked to build an infinite-scrolling feed and you think pagination is the better product decision. How do you handle that?",
+		"codeContext": null,
+		"modelAnswer": "Build what was asked, and raise the concern once, briefly, while building.\n\n    \nSomething like: \"I'll build infinite scroll. For a search results page I'd usually argue for load-more, because the footer becomes unreachable, find-in-page stops working, and users lose their position on back. For a feed it's the right call.\"\n\n    \nThat demonstrates product thinking without refusing the task or turning the exercise into a debate. Refusing to build it reads as difficult; building it silently reads as not having considered it. One sentence gets the credit for both.",
+		"related": ["react/production/building-under-time-pressure"]
+	}
+]

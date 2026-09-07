@@ -1,0 +1,147 @@
+---
+title: "Performance"
+summary: "Measuring before optimising, and why most memoization achieves nothing."
+order: 22
+prerequisites: ["react/how-react-works/reconciliation-fiber-and-re-renders", "react/how-react-works/the-rules-of-react", "react/effects-and-refs/useeffect", "react/state-at-scale/state-beyond-one-component", "react/data-and-architecture/suspense-lazy-and-transitions", "react/data-and-architecture/project-structure"]
+tags: []
+updated: "2026-09-04"
+---
+
+Almost every React performance problem is one of four things: rendering far too many DOM nodes, doing expensive work on every render, re-rendering a large subtree in response to something small, or shipping too much JavaScript. They have different fixes, and guessing which one you have is how people end up memoizing an app that was never slow for that reason.
+
+## Measure first
+
+Start with the Components tab in React DevTools. Turn on "Highlight updates when components render" and use the app: the outlines show you exactly what re-renders as you type, click and navigate. Most of the time the culprit is visible immediately — a whole page flashing on every keystroke.
+
+The Profiler tab records a session and shows which components rendered and how long each took. Turn on *Record why each component rendered* in its settings before recording: it labels every render with the reason — props changed, state changed, the parent rendered, context changed — which is the question this whole chapter is about, answered directly rather than inferred.
+
+React Performance Tracks, added in 19.2, put the same information on the browser's own Performance panel timeline. A Scheduler track shows what React was working on and at what priority, so blocking work and transition work are distinguishable (see 9); a Components track shows which components rendered and when their effects ran. The advantage over the Profiler is context — React's work sits beside network, layout and paint on one timeline, which is what you need when the question is "why did this frame take 200ms" rather than "which component is slow".
+
+Two things worth checking before touching any code. Development builds are considerably slower than production, so measure a production build before concluding anything. And throttle the CPU in devtools — a problem invisible on a laptop is obvious at 4× slowdown, which is closer to what many users have.
+
+## Referential equality
+
+Nearly every memoization question comes back to this. React compares props, dependencies and context values by identity, and objects, arrays and functions created during render are new every time.
+
+```jsx
+const JobList = ({ jobs }) => {
+  const filters = { type: 'Remote' };              // new object each render
+  const onSelect = (id) => {                       // new function each render
+    console.log(id);
+  };
+
+  return <JobCard filters={filters} onSelect={onSelect} />;
+};
+```
+
+Even if `JobCard` is wrapped in `memo`, both props differ on every render, so the comparison always fails. The memo does nothing except add work.
+
+## The three memoization tools
+
+| Tool | Memoizes | Use when |
+|---|---|---|
+| memo | A component's render | The component is expensive and its props are usually unchanged |
+| useMemo | A computed value | The computation is expensive, or the identity is needed downstream |
+| useCallback | A function's identity | The function is a dependency or a prop to a memoized child |
+
+They only work together. `useCallback` on a handler passed to a component that is not memoized achieves nothing. `memo` on a component receiving an inline object achieves nothing. Memoizing one side of a boundary is the most common wasted effort in React code.
+
+## Try structure before memoization
+
+<Figure caption="Two structural fixes remove the re-render. Memoization only stops it.">
+<svg viewBox="0 0 740 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A decision path: measure, then check whether state can move or content can be lifted, before reaching for memoization.">
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="240" y="20" width="260" height="32"/>
+    <rect x="240" y="80" width="260" height="32"/>
+    <rect x="240" y="140" width="260" height="32"/>
+    <rect x="240" y="200" width="260" height="32"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2">
+    
+<path d="M370 112 V138"/><path d="M370 172 V198"/>
+    <path d="M500 96 H660"/><path d="M500 156 H660"/>
+  </g>
+  <g fill="currentColor">
+    <path d="M370 80 l-4 -8 h8 z"/><path d="M370 140 l-4 -8 h8 z"/><path d="M370 200 l-4 -8 h8 z"/>
+    <path d="M662 96 l-8 -4 v8 z"/><path d="M662 156 l-8 -4 v8 z"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="currentColor" text-anchor="middle">
+    <text x="370" y="40">measure: what is re-rendering?</text>
+    <text x="370" y="100">can the state move down?</text>
+    <text x="370" y="160">can the content move up?</text>
+    <text x="370" y="220">now memoize what is left</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" font-style="italic" fill="currentColor">
+    <text x="668" y="100">done (14)</text>
+    <text x="668" y="160">done (14)</text>
+  </g>
+</svg>
+</Figure>
+
+Moving state down and moving content up (see 14) both eliminate the re-render at its source. Memoization leaves the re-render happening and adds a comparison to skip the work — which is more code to keep correct, and code that silently stops working when someone adds an inline prop.
+
+## When memoization is right
+
+```jsx
+const JobCard = memo(({ job, onSelect }) => {
+  // expensive enough to be worth skipping
+});
+
+const JobList = ({ jobs }) => {
+  const onSelect = useCallback((id) => {
+    select(id);
+  }, []);
+
+  return jobs.map((job) => (
+    <JobCard key={job.id} job={job} onSelect={onSelect} />
+  ));
+};
+```
+
+Both halves are present, so the comparison can succeed. That is the shape to check for whenever you see `memo`: is anything defeating it?
+
+`useMemo` also has a second job that is not about speed at all. Memoizing a value gives it a stable identity, which matters when it feeds a dependency array or a context value (see 11, 14). That use is about correctness, not performance, and applies even to cheap computations.
+
+## What React Compiler changes
+
+The compiler analyses data flow at build time and inserts memoization automatically, which removes most hand-written `memo`, `useMemo` and `useCallback`.
+
+It depends on the Rules of React (see 10). Where it cannot prove a component is safe it skips it, so a rule-breaking component silently misses the optimisation — the linter's warnings became load-bearing.
+
+Two things it does not do. It does not fix structural problems: a component re-rendering because state is in the wrong place still re-renders, it just skips more work inside. And it does not reduce DOM nodes, which is the actual cost in a long list (see 23).
+
+## Bundle size
+
+Rendering is not the only cost. Code the user downloads and parses before anything appears is often the larger one, especially on a phone.
+
+- Split by route, so a page nobody visits is never downloaded (see 18).
+- Split heavy libraries — charts, editors, date pickers — behind the interaction that needs them.
+- Check what a dependency costs before adding it, and whether a smaller one exists (see 21).
+- Run a bundle analyser occasionally. The surprises are usually a moment-style library or an icon set imported whole.
+
+  
+### What happens when
+
+  
+Someone wraps every component in the app in `memo` as a precaution. What is the effect?
+
+  
+Slightly worse performance and more code. Every render now performs a shallow prop comparison, and most of them fail anyway because of inline objects and functions, so React does the comparison and then re-renders. Where props genuinely are stable, the saving is usually smaller than the comparison cost for a cheap component. Memoization is a targeted fix for a measured problem, not a default.
+
+## Gotchas
+
+- Measure a production build. Development is much slower, and StrictMode double-renders.
+- memo compares shallowly. One inline object or arrow function defeats it entirely.
+- Memoizing one side of a boundary does nothing. Both the component and its props must be stable.
+- Context consumers re-render regardless of memo (see 14).
+- useMemo for identity is a correctness tool, not an optimisation, and the two get confused.
+- Re-render does not mean DOM update (see 8), so "too many renders" is not automatically the problem.
+
+## Takeaways
+
+- Find out what is slow before changing anything; highlight updates answers most questions.
+- Referential equality is behind nearly every memoization question.
+- Moving state down or content up removes the re-render; memoization only skips it.
+- memo, useMemo and useCallback work only in matched pairs.
+- The compiler automates most of this, and depends on the Rules of React to do it.
+- Bundle size is often the bigger cost, and route splitting is the cheapest fix.

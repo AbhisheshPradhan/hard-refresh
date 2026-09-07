@@ -1,0 +1,134 @@
+---
+title: "When something breaks"
+summary: "An index by symptom. Numbers are chapters."
+order: 2
+prerequisites: []
+tags: []
+updated: "2026-09-08"
+---
+
+Everything here is covered somewhere in the book. This page exists because when something is broken you know the symptom, not the topic.
+
+## State is stale, or the screen disagrees with the data
+
+| Symptom | Chapter |
+|---|---|
+| Read state on the line after setting it — that variable belongs to the current render | 4 |
+| Mutated an object or array and passed the same reference to the setter | 4, 10 |
+| Several updates that each read the old value; needed the functional form | 4 |
+| A long-lived callback — interval, listener, subscription — captured an old render | 10 |
+| State derived from props, initialised once and now diverged | 11, 14 |
+| Two components each holding their own copy of server data | 13, 16 |
+
+## An effect runs too often, or never stops
+
+| Symptom | Chapter |
+|---|---|
+| Object, array or function in the dependency array — new identity every render | 11 |
+| No dependency array at all, and the effect sets state | 11 |
+| The effect sets state it also depends on | 11 |
+| It should not be an effect: the value is derived, or belongs in a handler | 11 |
+| Runs twice in development — missing cleanup, exposed by StrictMode | 10 |
+
+## Too many re-renders, or the page feels slow
+
+| Symptom | Chapter |
+|---|---|
+| State sits higher than the component that uses it | 14 |
+| An expensive subtree is created inside the component whose state changes | 14 |
+| One context carrying values with very different change frequencies | 14 |
+| `memo` defeated by an inline object or arrow prop | 22 |
+| A selector returning a new array or object on every call | 15 |
+| Too many DOM nodes — the cost is layout and paint, not React | 23 |
+| Slow to become interactive: bundle size, not rendering | 22 |
+
+## An input loses focus, or state resets for no reason
+
+| Symptom | Chapter |
+|---|---|
+| A component defined inside another component — new type each render, so it remounts | 9 |
+| Array index used as a key in a list that reorders or deletes | 6 |
+| A random or changing key, remounting everything every render | 6 |
+| Element type changed at the same position — `div` to `section` | 9 |
+
+## The wrong row's state after a delete, sort or filter
+
+| Symptom | Chapter |
+|---|---|
+| Index keys: state stayed with the position, not the item | 6, 9 |
+| Offset paging while the data changes underneath — rows duplicate or vanish | 23 |
+
+## Data problems
+
+| Symptom | Chapter |
+|---|---|
+| Wrong item shown after fast clicking — responses arriving out of order | 11, 16 |
+| A 404 or 500 renders as empty data — `fetch` does not throw on HTTP errors | 16 |
+| Filter changes but results do not — the query key is missing a dependency | 16 |
+| One component updates after a mutation, others stay stale — no shared cache | 13, 16 |
+| An optimistic update flickers back — no `cancelQueries` before writing | 16 |
+| A previous user's data appears after login — cache not cleared on logout | 20 |
+
+## Routing and auth
+
+| Symptom | Chapter |
+|---|---|
+| Logged out on every refresh — the guard treats "still checking" as "signed out" | 17, 20 |
+| Refreshing a nested URL 404s in production — no server rewrite to `index.html` | 17, 21 |
+| Back button loops between login and a protected page — missing `replace` | 17, 20 |
+| Form keeps the previous record's values after navigating — same route, no remount | 6, 17 |
+| Filters lost on refresh or back — state that belonged in the URL | 17 |
+| Full page reload on an internal link — an `<a href>` instead of `Link` | 17 |
+
+## Failures and blank screens
+
+| Symptom | Chapter |
+|---|---|
+| One broken component blanks the app — no boundary, or only one at the root | 19 |
+| A handler throws and nothing appears — boundaries do not catch handler errors | 19 |
+| A fallback stays visible after navigating away — the boundary was never reset | 19 |
+| A lazy route spins forever — the chunk failed to download and nothing caught it | 18, 19 |
+| Every navigation blanks the whole page — Suspense boundary too high | 18 |
+| Crash on `undefined` reading fetched data — rendered before it arrived | 11, 17 |
+
+## Forms
+
+| Symptom | Chapter |
+|---|---|
+| Typing does nothing — `value` without `onChange` | 7 |
+| Warning about switching from uncontrolled to controlled — initial value was `undefined` | 7 |
+| Editing one field clears the others — replaced the state object without spreading | 4, 7 |
+| A select submits empty — initial state does not match any option value | 7 |
+| Duplicate submissions — the button was not disabled while in flight | 7 |
+| The page reloads on submit — missing `e.preventDefault()` | 5, 7 |
+
+## Rendering oddities
+
+| Symptom | Chapter |
+|---|---|
+| A stray `0` on the page — `&&` guarded by a length instead of a comparison | 2 |
+| A component renders nothing and logs no error — lowercase name, treated as an HTML tag | 2 |
+| Two console logs per click in development — StrictMode double-invoke | 8, 10 |
+| Hook order error after data loads — a hook below an early return | 10 |
+| Clicking a nested button also triggers the card — event bubbling | 5 |
+| A modal is clipped or hidden behind other content — ancestor stacking context | 25 |
+
+## Keyboard and screen readers
+
+| Symptom | Chapter |
+|---|---|
+| Focus goes behind the modal overlay — no focus trap | 25 |
+| Focus lost after closing a dialog — not restored to the trigger | 25 |
+| A control cannot be reached by Tab — a `div` doing a button's job | 25 |
+| Async changes go unannounced — no live region | 25 |
+| Find-in-page finds nothing in a long list — rows are virtualized | 23 |
+
+## Tests
+
+| Symptom | Chapter |
+|---|---|
+| Flaky, with an act warning — a state update landed after the test finished | 27 |
+| A failure test times out — query retries not disabled | 27 |
+| Data leaking between tests — one shared `QueryClient` | 27 |
+| Tests break on every refactor — asserting on structure, not behaviour | 27 |
+| A test passes on an interface a user cannot operate — `fireEvent` instead of `user-event` | 27 |

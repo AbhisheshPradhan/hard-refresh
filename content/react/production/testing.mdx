@@ -1,0 +1,226 @@
+---
+title: "Testing"
+summary: "Testing what users do, and not testing what they cannot see."
+order: 27
+prerequisites: ["react/production/portals-modals-and-accessibility"]
+tags: []
+updated: "2026-09-04"
+---
+
+A test is only worth having if it fails when the app is broken and passes when it is not. Most bad React tests fail the second half: they break during refactors that changed nothing a user would notice, and the team learns to update them without reading them.
+
+React Testing Library is built around avoiding that. It gives you no access to state, props or internals — only what is rendered.
+
+The usual set, so the names are not a mystery. **Vitest** runs the tests in a Vite project and **Jest** in older setups; the two are close enough that test files rarely differ. **React Testing Library** supplies `render` and `screen`, with `@testing-library/user-event` for interaction and `@testing-library/jest-dom` for matchers such as `toBeInTheDocument`. **MSW** handles the network. **Playwright** covers the end-to-end journeys, driving a real browser against a running application.
+
+## Query the way a user finds things
+
+```jsx
+import { render, screen } from '@testing-library/react';
+
+render(<JobCard job={job} />);
+
+screen.getByRole('heading', { name: 'React Developer' });
+screen.getByRole('button', { name: 'Apply' });
+screen.getByLabelText('Search jobs');
+screen.getByText('Boston, MA');
+```
+
+Prefer roles and accessible names, because that is how the interface is actually perceived — and a test that cannot find a button by its role has usually found a real accessibility problem (see 25). `getByTestId` is the escape hatch for things with no accessible identity, such as a decorative container.
+
+| Query | Behaviour |
+|---|---|
+| getBy… | Throws if not found. For things that must be there now |
+| queryBy… | Returns null. The only one for asserting absence |
+| findBy… | Returns a promise, retries. For things that appear later |
+| …AllBy… | The same, for multiple matches |
+
+## Interacting
+
+```jsx
+import userEvent from '@testing-library/user-event';
+
+const user = userEvent.setup();
+
+await user.click(screen.getByRole('button', { name: 'Add Job' }));
+await user.type(screen.getByLabelText('Job title'), 'React Developer');
+await user.selectOptions(screen.getByLabelText('Type'), 'Remote');
+```
+
+`user-event` simulates the whole interaction: a click involves pointer events, focus and the click itself, and typing fires a keydown, keypress, input and keyup per character. `fireEvent` dispatches one synthetic event, which means a test can pass where a real user's interaction would fail — a disabled button, for instance, ignores a real click but not a dispatched one.
+
+Every `user-event` call is async. Forgetting the `await` is the most common cause of a flaky React test.
+
+## A test that earns its place
+
+```jsx
+test('adding a job shows it in the list', async () => {
+  const user = userEvent.setup();
+  render(<AddJobPage />);
+
+  await user.type(screen.getByLabelText('Job title'), 'React Developer');
+  await user.selectOptions(screen.getByLabelText('Type'), 'Remote');
+  await user.click(screen.getByRole('button', { name: 'Add Job' }));
+
+  expect(await screen.findByText('Job added successfully')).toBeInTheDocument();
+});
+```
+
+Nothing here references a component name, a state variable or a class. Rename the state, split the component in two, swap the CSS approach — the test still passes, because none of that changed what the user does or sees. That is the property to aim for.
+
+## Async and act warnings
+
+```jsx
+// wrong: the element does not exist yet
+expect(screen.getByText('React Developer')).toBeInTheDocument();
+
+// right: wait for it
+expect(await screen.findByText('React Developer')).toBeInTheDocument();
+
+// for something that is not a query
+await waitFor(() => {
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ title: 'React Developer' }));
+});
+```
+
+"An update to X was not wrapped in act(...)" almost always means a state update happened after the test finished — a fetch resolving, a timer firing. The fix is not to wrap things in `act` manually; it is to await the thing you were waiting for, so the update happens inside the test rather than after it.
+
+## Mocking the network
+
+Mock at the network layer rather than replacing `fetch`, so the code under test runs unchanged. MSW — Mock Service Worker — intercepts requests below your code, which means the query keys, the fetch and the error handling all still run.
+
+```jsx
+import { setupServer } from 'msw/node';
+import { http, HttpResponse } from 'msw';
+
+const server = setupServer(
+  http.get('/api/jobs', () => {
+    return HttpResponse.json([{ id: '1', title: 'React Developer' }]);
+  })
+);
+
+beforeAll(() => {
+  server.listen();
+});
+
+afterEach(() => {
+  server.resetHandlers();
+});
+
+afterAll(() => {
+  server.close();
+});
+```
+
+The same handlers work in tests and in the browser during development, and error cases become one-line overrides:
+
+```jsx
+test('shows an error when the request fails', async () => {
+  server.use(
+    http.get('/api/jobs', () => {
+      return new HttpResponse(null, { status: 500 });
+    })
+  );
+
+  render(<JobsPage />);
+
+  expect(await screen.findByText(/could not load/i)).toBeInTheDocument();
+});
+```
+
+Error and empty states are the paths users hit and tests usually skip.
+
+## Components that need providers
+
+Most components need a router, a query client, or auth. Wrap once rather than in every test.
+
+```jsx
+// test/utils.jsx
+const renderWithProviders = (ui, { route = '/' } = {}) => {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[route]}>
+        <AuthProvider>{ui}</AuthProvider>
+      </MemoryRouter>
+    </QueryClientProvider>
+  );
+};
+
+renderWithProviders(<JobPage />, { route: '/jobs/3' });
+```
+
+Turning off retries matters: with the default, a test for a failing request waits through several retry attempts before the error appears, and usually times out.
+
+### Hooks
+
+```jsx
+import { renderHook, act } from '@testing-library/react';
+
+test('useDebounce delays the value', async () => {
+  const { result, rerender } = renderHook(({ value }) => useDebounce(value, 300), {
+    initialProps: { value: 'a' },
+  });
+
+  rerender({ value: 'ab' });
+  expect(result.current).toBe('a');
+
+  await waitFor(() => {
+    expect(result.current).toBe('ab');
+  });
+});
+```
+
+Worth doing for hooks with real logic of their own. A hook that is used by one component is usually better tested through that component, where you also verify it is wired up correctly.
+
+## What not to test
+
+- Implementation details. State values, prop names, whether a child component rendered, how many times something re-rendered.
+- Library behaviour. React Router navigating, a date library formatting. They have their own tests.
+- Snapshots of whole components. They fail on every markup change and are approved without reading, which is worse than no test.
+- Static markup. A test asserting a heading contains the text you passed it verifies nothing.
+
+The test to write is the one that would have caught the last bug you shipped.
+
+This is also why coverage is a poor target. It measures which lines executed, not whether anything was verified — a test that renders a component and asserts nothing counts the same as one that checks the behaviour. High coverage alongside regular bugs usually means many shallow component tests and few tests of complete flows, which is where the bugs actually live: a form submitting the wrong shape, a mutation that never invalidates its cache, a guard that redirects too early.
+
+## Unit, integration, end to end
+
+| Kind | Good for | Cost |
+|---|---|---|
+| Unit | Pure functions: formatting, validation, reducers | Cheap and fast; proves little about the app |
+| Integration | A feature: form, list, flow, with the network mocked | Moderate; where most value is |
+| End to end | Critical journeys against a real stack | Slow and flaky; keep the set small |
+
+**Default:** mostly integration tests with React Testing Library, unit tests for anything with real logic — reducers and validators repay them immediately — and a handful of Playwright tests for the few journeys that must never break, such as signing in and submitting a job.
+
+  
+### What happens when
+
+  
+A component is refactored from one file into three, with state moved to a reducer. The behaviour is identical. What should happen to its tests?
+
+  
+Nothing — they should pass untouched. If they fail, they were testing the structure rather than the behaviour, and the failure is noise. A test suite that has to be updated alongside every refactor is charging you rent without insuring anything.
+
+## Gotchas
+
+- Every user-event call is async. A missing await is the usual source of flakiness.
+- getBy throws, so it cannot assert absence. Use queryBy with not.toBeInTheDocument().
+- Act warnings mean an update happened after the test ended — await the pending thing rather than wrapping in act.
+- Query retries make failure tests time out. Disable them in the test client.
+- A fresh QueryClient per test, or cached data leaks between them.
+- fireEvent can succeed where a real interaction would fail, such as clicking a disabled button.
+
+## Takeaways
+
+- A good test fails only when behaviour changes, and survives refactors.
+- Query by role and accessible name; test ids are the fallback.
+- getBy now, queryBy for absence, findBy for later.
+- user-event over fireEvent, and await every call.
+- Mock the network with MSW, and cover the error and empty paths.
+- Wrap providers in one helper, with retries disabled.
+- Mostly integration tests, units for real logic, a few end-to-end journeys.

@@ -1,0 +1,104 @@
+---
+title: "Practices, and where they come from"
+summary: "A checklist for review. Each line is a conclusion; the number is where the reasoning lives."
+order: 4
+prerequisites: []
+tags: []
+updated: "2026-09-08"
+---
+
+Read as rules these are slogans. They are worth something because you have seen what goes wrong without them, which is why every line points back to a chapter rather than standing alone.
+
+## Components
+
+| Practice | Why | Chapter |
+|---|---|---|
+| Define components at module level | Defining one inside another gives it a new type each render, so it remounts and loses state | 9 |
+| Capitalise component names | Lowercase is treated as an HTML tag and fails silently | 2 |
+| Take `children` rather than content props | Configuration props accumulate; slots do not | 3, 24 |
+| Default to uncontrolled with a callback | Controlled-only forces every caller to hold state | 24 |
+| Extend native element props | `ComponentProps<'button'>` beats listing them | 26 |
+| Throw a clear error from context hooks | The message is part of the component's interface | 14, 24 |
+
+## State
+
+| Practice | Why | Chapter |
+|---|---|---|
+| Colocate first | Move state only when something forces you to | 14 |
+| Derive, do not store | Anything computable from existing state is not state | 11, 14 |
+| Replace, never mutate | React compares references; a mutated value looks unchanged | 4, 10 |
+| Use the functional updater | Whenever the next value depends on the previous one | 4 |
+| Wrap a computed initial value | Parentheses inside `useState` mean work on every render, discarded after the first | 4 |
+| Store data, not actions | A function in state captures its render and cannot be logged, compared or persisted | 4 |
+| One status string, not several booleans | Impossible combinations become unrepresentable | 7 |
+| Lift to the closest common parent | Not to the top of the app | 14 |
+| Put shareable state in the URL | Filters, sort, pagination, tabs survive refresh and can be sent to someone | 17 |
+| Split contexts by change frequency | One fast-changing value sets the re-render rate for every consumer | 14 |
+| Keep server data out of the store | It is a cache, with different problems | 15, 16 |
+
+## Effects
+
+| Practice | Why | Chapter |
+|---|---|---|
+| Ask whether it should be an effect | Derived values belong in render; responses to actions belong in handlers | 11 |
+| Always clean up | Subscriptions, timers and requests, before every re-run as well as unmount | 11 |
+| One effect per job | Combined effects re-run on the union of their dependencies | 11 |
+| Depend on primitives | Build objects inside the effect rather than memoizing them outside | 11 |
+| Abort in-flight requests | Otherwise a slow response overwrites a newer one | 11, 16 |
+| Do not silence StrictMode | Two effects in development means missing cleanup | 10 |
+
+## Lists and rendering
+
+| Practice | Why | Chapter |
+|---|---|---|
+| Key by a stable id | Index keys attach state to a position rather than an item | 6 |
+| Use a key to reset deliberately | Cleaner than an effect that resets state when a prop changes | 6, 11 |
+| Guard `&&` with a comparison | A length of zero renders a literal `0` | 2 |
+| Handle loading, error and empty | Every data-driven component has four states | 5, 16 |
+| Early returns over nested ternaries | Readable past two branches, and cheap to extend | 5 |
+
+## Data
+
+| Practice | Why | Chapter |
+|---|---|---|
+| Check `res.ok` | `fetch` does not throw on 404 or 500 | 16 |
+| Everything the query reads goes in the key | Or the cache serves the wrong result | 16 |
+| Invalidate after mutations | One line updates every reader of that data | 16 |
+| Cancel, snapshot, apply, settle | The four steps of a safe optimistic update | 16 |
+| Validate data at the boundary | A type assertion on a response checks nothing | 26 |
+| Cursor paging for changing data | Offset paging duplicates and skips rows | 23 |
+
+## Performance
+
+| Practice | Why | Chapter |
+|---|---|---|
+| Measure before optimising | Production build, throttled CPU, highlight updates | 22 |
+| Move state down or content up first | Both remove the re-render; memoization only skips it | 14, 22 |
+| Memoize both sides or neither | One half of a boundary achieves nothing | 22 |
+| Fewer nodes, not faster rendering | Long lists cost layout and paint | 23 |
+| Split by route | The cheapest bundle win available | 18, 22 |
+| Deferred value for render cost, debounce for request cost | Different problems, different tools | 13, 18 |
+
+## Structure and safety
+
+| Practice | Why | Chapter |
+|---|---|---|
+| Features import downward, never sideways | Sideways imports make features unremovable | 21 |
+| Import from files, not barrels | Barrels slow startup and defeat tree-shaking | 21 |
+| Wrap dependencies you might replace | One file to change instead of hundreds of call sites | 21 |
+| Boundaries around anything that can fail alone | Root, route, and each risky widget | 19 |
+| Give every fallback a retry | And reset the boundary on navigation | 19 |
+| Distinguish "unknown" from "signed out" | Collapsing them logs users out on refresh | 17, 20 |
+| Enforce authorisation on the server | Hidden buttons are convenience, not security | 20 |
+
+## Accessibility and testing
+
+| Practice | Why | Chapter |
+|---|---|---|
+| Use the semantic element | A `div` with `onClick` is not a button | 25 |
+| Label every input | A placeholder is not a label | 7, 25 |
+| Keep focus visible and restore it | Use `:focus-visible`; return focus after a dialog closes | 25 |
+| Announce async changes | A live region for results, errors and toasts | 25 |
+| Query by role and accessible name | A test that cannot find a button often found a real problem | 27 |
+| Test behaviour, not structure | A test that breaks on refactor is charging rent without insuring anything | 27 |
+| Mock the network, not the hook | Mocking the hook removes what you meant to test | 27 |

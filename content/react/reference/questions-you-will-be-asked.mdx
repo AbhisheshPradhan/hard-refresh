@@ -1,0 +1,114 @@
+---
+title: "Questions you'll be asked"
+summary: "An index, not new material. Numbers are chapters; decimals are quiz questions."
+order: 5
+prerequisites: []
+tags: []
+updated: "2026-09-08"
+---
+
+Nothing here is answered on this page. It exists so you can drill by question rather than by topic — read the question, answer it out loud, then check.
+
+## How React works
+
+| Question | Where |
+|---|---|
+| What happens between calling a setter and the screen changing? | 8 |
+| What is React Fiber, and how does it differ from the virtual DOM? | 9, 9.3 |
+| Why was Fiber introduced at all? | 9, 9.3 |
+| Explain reconciliation and the diffing heuristics. | 9 |
+| What actually causes a component to re-render? | 9, 9.1 |
+| Does a re-render mean the DOM was updated? | 8, 8.3 |
+| How does React decide when to pause and resume work? | 9, 9.8 |
+| Why does React ship as two packages? | 8, 8.6 |
+| What is StrictMode's double render for? | 10, 10.7 |
+| Why must render be pure? | 8, 8.2 |
+
+## Hooks and state
+
+| Question | Where |
+|---|---|
+| What are the rules of hooks, and why do they exist? | 10, 10.2 |
+| Why can't hooks be called conditionally? | 10, 10.2 |
+| What is a stale closure, and how do you fix one? | 10, 10.5 |
+| When would you use `useReducer` over `useState`? | 14, 14.8 |
+| Why does React require new objects rather than mutation? | 4, 4.8 |
+| What does the dependency array actually compare? | 11, 11.2 |
+| When does an effect's cleanup run? | 11, 11.1 |
+| When should you *not* write an effect? | 11, 11.8 |
+| What is `useRef` for, beyond DOM access? | 12, 12.2 |
+| Do two components using the same hook share state? | 13, 13.1 |
+| When is `useMemo` about correctness rather than speed? | 22, 22.5 |
+| `useLayoutEffect` versus `useEffect`? | 11, 11.7 |
+
+## Rendering and lists
+
+| Question | Where |
+|---|---|
+| Why does React need keys? | 6, 6.1 |
+| Do keys prevent re-renders? | 6, 6.7 |
+| What goes wrong with array indexes as keys? | 6, 6.3 |
+| How would you deliberately reset a component's state? | 6, 6.5 |
+| Why does an input lose focus on every keystroke? | 9, 9.4 |
+| What does JSX compile to? | 2, 2.1 |
+
+## State architecture
+
+| Question | Where |
+|---|---|
+| Where should a piece of state live? | 14 |
+| What are the downsides of Context? | 14, 14.2 |
+| Context versus Redux — how do you choose? | 15, 15.1 |
+| Would you add Redux to a new project? | 15, 15.7 |
+| What is the difference between client state and server state? | 15, 15.8 |
+| Hooks, HOCs, context or a store — which and why? | 24, 24.7 |
+| How would you implement undo and redo? | 14, 14.5 |
+
+## Data and routing
+
+| Question | Where |
+|---|---|
+| How do you handle a race condition when fetching? | 11, 11.4 |
+| Why use a query library rather than fetching in an effect? | 16, 16.7 |
+| What is a query key and why does it matter? | 16, 16.3 |
+| How do optimistic updates work, and when are they wrong? | 16, 16.5, 16.6 |
+| What do route loaders give you, and what don't they? | 17, 17.8 |
+| Why does a refresh 404 on a deployed SPA? | 17, 17.3 |
+| How do you protect a route? | 17, 20 |
+| Why are users logged out on refresh? | 20, 17.4 |
+| Where should an auth token be stored? | 20, 20.4 |
+
+## Failure, waiting and performance
+
+| Question | Where |
+|---|---|
+| What do error boundaries catch, and what don't they? | 19, 19.1 |
+| Why must an error boundary be a class? | 19, 19.2 |
+| Where do you place Suspense and error boundaries? | 18, 19, 19.7 |
+| Does `startTransition` make anything faster? | 18, 18.2 |
+| Debounce or `useDeferredValue`? | 13, 18, 13.5 |
+| Why does `memo` often do nothing? | 22, 22.1 |
+| How would you approach a slow page? | 22, 22.3, 22.7 |
+| How do you render ten thousand rows? | 23, 23.7 |
+| Infinite scroll or pagination? | 23, 23.6 |
+| What does React Compiler change? | 22, 22.6 |
+
+## Patterns, types, testing, accessibility
+
+| Question | Where |
+|---|---|
+| What can class components do that function components cannot? | 19, 19.2 |
+| Custom hook or higher-order component? | 24, 13.7, 24.7 |
+| How would you design a reusable modal or tabs component? | 24, 24.3 |
+| Controlled or uncontrolled — how do you decide? | 7, 24, 7.8 |
+| How would you type a component's props? | 26, 26.3 |
+| Why is `as Job[]` on an API response a problem? | 26, 26.4 |
+| What makes a React test worth keeping? | 27, 27.3 |
+| Why `user-event` rather than `fireEvent`? | 27, 27.2 |
+| High coverage and still shipping bugs — what now? | 27, 27.7 |
+| What does a modal need to be accessible? | 25, 25.3 |
+| Why not a `div` with an `onClick`? | 25, 25.4 |
+
+<Callout kind="note">
+Two habits worth more than any single answer. Say what you are trading away — an answer with a named cost beats one presented as free. And when there is a better question underneath the one asked, ask it: whether all ten thousand rows need to be in the browser, whether that state should be shared at all, whether the fix is a memo or a move.
+</Callout>

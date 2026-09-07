@@ -1,0 +1,108 @@
+---
+title: "The remaining hooks"
+summary: "The ones not covered in a chapter, with the case for each."
+order: 7
+prerequisites: []
+tags: []
+updated: "2026-09-08"
+---
+
+The book covers `useState`, `useEffect`, `useRef`, `useReducer`, `useContext`, `useMemo`, `useCallback`, `useTransition` and `useDeferredValue` in their own chapters. These are the rest.
+
+## useLayoutEffect covered in 11
+
+Identical to `useEffect` except for timing: it runs inside the commit, after the DOM is updated but before the browser paints, so it blocks painting. `useEffect` runs later, after the paint.
+
+**Use it** when you must measure a node and adjust it in the same frame, so the user never sees the intermediate position — positioning a tooltip that would otherwise flash off-screen. **Otherwise `useEffect`**, because anything slow inside delays the frame.
+
+## useId
+
+```jsx
+const id = useId();
+
+<label htmlFor={`${id}-title`}>Job title</label>
+<input id={`${id}-title`} />
+```
+
+Generates a stable unique string, the same on the server and the client. Written for reusable components that need to associate a label with an input without the caller supplying an id, and without two instances on the page colliding.
+
+**Not** for list keys — those need to come from the data (see 6). And do not use `Math.random()` for ids in a server-rendered app: the server and client generate different values and hydration fails.
+
+## useSyncExternalStore
+
+```jsx
+const isOnline = useSyncExternalStore(
+  (callback) => {
+    window.addEventListener('online', callback);
+    window.addEventListener('offline', callback);
+
+    return () => {
+      window.removeEventListener('online', callback);
+      window.removeEventListener('offline', callback);
+    };
+  },
+  () => navigator.onLine,           // read the current value
+  () => true                        // value during server rendering
+);
+```
+
+Subscribes to something that lives outside React and keeps the reads consistent during concurrent rendering. This is how Redux, Zustand and similar libraries connect to React (see 15).
+
+**Use it** when subscribing to a browser API or an external store — `matchMedia`, online status, a non-React state container. **Not** for data you fetch; that is a cache (see 16). Most application code never calls it directly.
+
+## useEffectEvent
+
+```jsx
+const onVisit = useEffectEvent((jobId) => {
+  logVisit(jobId, theme);        // always reads the latest theme
+});
+
+useEffect(() => {
+  onVisit(jobId);
+}, [jobId]);                     // theme is not a dependency, and need not be
+```
+
+Extracts the part of an effect that should always see the latest values without becoming a dependency. Solves the case where an effect must re-run for one value but not another — logging a page visit when the job changes, while still reading the current theme.
+
+**Use it** for the "read the latest, do not re-subscribe" case, which previously meant holding a value in a ref (see 12). Stable since React 19.2.
+
+The constraints are unusually tight, because React needs to know the function never escapes its effect. It may only be called from inside an Effect in the same component — not passed as a prop, not returned from a hook, not called from an arbitrary callback. The `react-hooks` lint rule enforces this.
+
+## use
+
+```jsx
+const job = use(jobPromise);        // suspends until it resolves
+const theme = use(ThemeContext);    // like useContext, but conditional is allowed
+```
+
+Reads a promise or a context. Unlike every other hook it may be called conditionally, because it does not rely on call-order slots.
+
+**Mostly for frameworks** passing a promise from server to client. In an ordinary client app, a query library covers the same ground with caching and error handling attached (see 16).
+
+## useOptimistic covered in 7
+
+Shows a value immediately and reverts automatically if the action fails. Scoped to one component and paired with Actions.
+
+**Use it** for a local form. For an optimistic change to shared cached data, use the mutation lifecycle instead — cancel, snapshot, apply, settle (see 16).
+
+## useDebugValue
+
+```jsx
+useDebugValue(isOnline ? 'online' : 'offline');
+```
+
+Adds a label to a custom hook in React DevTools. Only useful in a shared hook that several people will inspect; unnecessary in application code.
+
+## Quick reference
+
+| Hook | Reach for it when |
+|---|---|
+| useLayoutEffect | Measuring and adjusting before paint, to avoid a visible flash |
+| useId | A reusable component needs unique ids for label and input pairs |
+| useSyncExternalStore | Subscribing to a browser API or an external store |
+| useEffectEvent | An effect must read a value without re-running when it changes |
+| use | Reading a promise or context, often in a framework context |
+| useOptimistic | Local optimistic UI in a form action |
+| useDebugValue | Labelling a shared custom hook in DevTools |
+| useImperativeHandle | Exposing a narrow API instead of a raw DOM node (see 12) |
+| &lt;Activity> | Not a hook — hides a subtree while keeping its state (see 9) |

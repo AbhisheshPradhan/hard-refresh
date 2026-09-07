@@ -1,0 +1,140 @@
+---
+title: "Events and conditional rendering"
+summary: "Responding to the user, and showing different things for different state."
+order: 5
+prerequisites: []
+tags: []
+updated: "2026-09-04"
+---
+
+Event handlers are props. They are camelCase, and they take a function rather than a string.
+
+```jsx
+<button onClick={handleApply}>Apply</button>
+```
+
+## Pass a function, do not call one
+
+```jsx
+onClick={handleApply}          // correct: React calls it on click
+onClick={handleApply()}        // wrong: runs during render, passes the result
+onClick={() => handleApply()}  // correct, and needed when passing arguments
+```
+
+The second form calls the function while the component is rendering. If it sets state, that schedules another render, which calls it again — usually an infinite loop, and always a side effect in render (see 10).
+
+Arguments therefore need a wrapper:
+
+```jsx
+<button onClick={() => {
+  onDelete(job.id);
+}}>
+  Delete
+</button>
+```
+
+## The event object
+
+Handlers receive a synthetic event — React's wrapper over the browser event, with the same interface across browsers.
+
+```jsx
+const onChange = (e) => {
+  setQuery(e.target.value);
+};
+
+const onSubmit = (e) => {
+  e.preventDefault();
+  save();
+};
+```
+
+`e.preventDefault()` stops the browser's default behaviour: a form reloading the page, a link navigating. `e.stopPropagation()` stops the event travelling further up.
+
+### Propagation
+
+Events bubble upward through the tree. A click on a button inside a card triggers the button's handler, then the card's.
+
+```jsx
+<article onClick={openJob}>
+  <h3>{job.title}</h3>
+
+  <button onClick={(e) => {
+    e.stopPropagation();   // without this, saving also opens the job
+    onSave(job.id);
+  }}>
+    Save
+  </button>
+</article>
+```
+
+Worth knowing what is happening underneath: React does not attach a listener to every element. It attaches at the root container and works out which component the event belongs to, then replays the bubbling through your component tree. So propagation follows the tree you wrote, which is normally the same shape as the DOM — but it is why a handler on a component still sees events from a portal rendered elsewhere in the document (see 25).
+
+## Conditional rendering
+
+Three tools, chosen by shape rather than preference.
+
+| Shape | Use |
+|---|---|
+| One thing or another | Ternary |
+| Something or nothing | && |
+| Several branches, or an early exit | if above the return |
+
+```jsx
+// one or the other
+<button onClick={toggle}>{showFull ? 'Less' : 'More'}</button>
+
+// something or nothing
+{job.isRemote && <Badge>Remote</Badge>}
+
+// branches, handled before the return
+const JobList = ({ jobs, loading, error }) => {
+  if (loading) {
+    return <Spinner />;
+  }
+
+  if (error) {
+    return <ErrorMessage error={error} />;
+  }
+
+  if (jobs.length === 0) {
+    return <EmptyState />;
+  }
+
+  return (
+    <ul>
+      {jobs.map((job) => (
+        <JobCard key={job.id} job={job} />
+      ))}
+    </ul>
+  );
+};
+```
+
+That last shape is worth adopting as a habit. Loading, error and empty are three states every data-driven component has, and handling them as early returns keeps the main path flat and readable.
+
+  
+### What happens when
+
+  
+A card has `onClick={openJob}` and contains a Delete button with `onClick={() => remove(job.id)}`. The user clicks Delete. What happens?
+
+  
+The job is deleted *and* the card opens, because the click bubbles from the button up to the card. The card then tries to display a job that no longer exists. Add `e.stopPropagation()` in the button's handler — or, better, do not make the whole card clickable when it contains its own controls.
+
+## Gotchas
+
+- onclick is not a JSX prop. It must be onClick, and lowercase fails silently.
+- onChange in React fires on every keystroke, unlike the DOM's change event, which fires on blur.
+- A ternary returning '' renders nothing, but a ternary returning 0 renders a zero (see 2).
+- Nesting ternaries quickly becomes unreadable. Two levels is usually the point to switch to early returns.
+- An inline arrow handler is a new function every render, which matters only once memoization is involved (see 22).
+- Disable buttons during async work. Without it, a double click submits twice.
+
+## Takeaways
+
+- Event props are camelCase and take a function reference, not a call.
+- Wrap in an arrow function when the handler needs arguments.
+- e.preventDefault() stops browser defaults; e.stopPropagation() stops bubbling.
+- React delegates at the root, so propagation follows the component tree.
+- Ternary for either/or, && for something-or-nothing, early returns for branches.
+- Loading, error and empty are states worth handling explicitly every time.

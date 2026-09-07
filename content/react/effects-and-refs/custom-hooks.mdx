@@ -1,0 +1,229 @@
+---
+title: "Custom hooks"
+summary: "Extracting stateful logic so it can be reused, named, and tested."
+order: 13
+prerequisites: ["react/effects-and-refs/useref"]
+tags: []
+updated: "2026-09-04"
+---
+
+A custom hook is a function whose name starts with `use` and that calls other hooks. There is no other machinery. React does not treat it specially; the naming convention is what tells the linter, and the reader, that the rules of hooks apply.
+
+## Extracting the first one
+
+The job board fetches jobs in two places, with the same three pieces of state and the same effect. Moving that into a function gives the pattern a name.
+
+hooks/useJobs.js
+
+```jsx
+export const useJobs = (limit) => {
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const load = async () => {
+      try {
+        const url = limit ? `/api/jobs?_limit=${limit}` : '/api/jobs';
+        const res = await fetch(url, { signal: controller.signal });
+        setJobs(await res.json());
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          setError(err);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+
+    return () => {
+      controller.abort();
+    };
+  }, [limit]);
+
+  return { jobs, loading, error };
+};
+```
+
+```jsx
+const JobListings = ({ isHome }) => {
+  const { jobs, loading, error } = useJobs(isHome ? 3 : undefined);
+
+  if (loading) {
+    return <Spinner />;
+  }
+
+  if (error) {
+    return <ErrorMessage />;
+  }
+
+  return jobs.map((job) => <JobListing key={job.id} job={job} />);
+};
+```
+
+The component now describes what it shows rather than how it loads. The fetching, cancellation and error handling live in one place, and a change to any of it happens once.
+
+## Hooks share logic, not state
+
+This is the point people most often get wrong. Two components calling `useJobs` do not share a list of jobs. Each call creates its own state, on its own fiber, and each runs its own effect.
+
+<Figure caption="A hook is a recipe, not a shared store. Two callers get two of everything.">
+<svg viewBox="0 0 740 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Two components calling the same hook each get their own independent state.">
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="70" y="26" width="180" height="30"/>
+    <rect x="70" y="96" width="180" height="30"/>
+    <rect x="70" y="166" width="180" height="30"/>
+    <rect x="480" y="26" width="180" height="30"/>
+    <rect x="480" y="96" width="180" height="30"/>
+    <rect x="480" y="166" width="180" height="30"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2">
+    
+<path d="M160 126 V164"/>
+    <path d="M570 56 V94"/><path d="M570 126 V164"/>
+  </g>
+  <g fill="currentColor">
+    <path d="M160 96 l-4 -8 h8 z"/><path d="M160 166 l-4 -8 h8 z"/>
+    <path d="M570 96 l-4 -8 h8 z"/><path d="M570 166 l-4 -8 h8 z"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="currentColor" text-anchor="middle">
+    <text x="160" y="46">HomePage</text>
+    <text x="160" y="116">useJobs(3)</text>
+    <text x="160" y="186">its own jobs, loading</text>
+    <text x="570" y="46">JobsPage</text>
+    <text x="570" y="116">useJobs()</text>
+    <text x="570" y="186">its own jobs, loading</text>
+  </g>
+  <g stroke="currentColor" stroke-width="1" stroke-dasharray="4 4">
+    <path d="M365 16 V206"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11.5" font-style="italic" fill="currentColor" text-anchor="middle">
+    <text x="365" y="222">same code, separate state, two fetches</text>
+  </g>
+</svg>
+</Figure>
+
+So a hook is the wrong tool for state that must be shared. That needs a lifted parent, a context, or a store (see 14, 15). It is also why two components using `useJobs` each fire their own request, which is one of the problems a query library solves (see 16).
+
+## A small library worth having
+
+### useLocalStorage
+
+```jsx
+export const useLocalStorage = (key, initialValue) => {
+  const [value, setValue] = useState(() => {
+    const stored = localStorage.getItem(key);
+    return stored ? JSON.parse(stored) : initialValue;
+  });
+
+  useEffect(() => {
+    localStorage.setItem(key, JSON.stringify(value));
+  }, [key, value]);
+
+  return [value, setValue];
+};
+```
+
+Two details worth copying. The initial value is read with an initializer function, so `localStorage` is touched once rather than on every render. And the hook returns a tuple in the same shape as `useState`, so it reads as a drop-in replacement.
+
+### useDebounce
+
+```jsx
+export const useDebounce = (value, delay = 300) => {
+  const [debounced, setDebounced] = useState(value);
+
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setDebounced(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(id);
+    };
+  }, [value, delay]);
+
+  return debounced;
+};
+```
+
+The cleanup is the mechanism: every keystroke cancels the pending timeout and starts a new one, so the value only settles once typing stops. Use it when the delay saves real work — a network request, an expensive query. When the cost is only rendering, `useDeferredValue` is the better tool, because it adapts to how fast the device actually is instead of guessing a fixed delay (see 18).
+
+### useClickOutside
+
+```jsx
+export const useClickOutside = (ref, onOutside) => {
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) {
+        onOutside();
+      }
+    };
+
+    document.addEventListener('mousedown', handler);
+
+    return () => {
+      document.removeEventListener('mousedown', handler);
+    };
+  }, [ref, onOutside]);
+};
+```
+
+Behind every dropdown, popover and filter panel. `onOutside` is in the dependency array, so an inline arrow function from the caller would re-subscribe on every render — the caller should pass a stable function, or the hook should hold it in a ref (see 12).
+
+## Composing hooks
+
+Hooks call hooks, so behaviour stacks without wrappers or nesting in the tree.
+
+```jsx
+export const useJobSearch = () => {
+  const [query, setQuery] = useState('');
+  const debouncedQuery = useDebounce(query, 300);
+  const { jobs, loading } = useJobs(debouncedQuery);
+
+  return { query, setQuery, jobs, loading };
+};
+```
+
+Compare this with the higher-order component version of the same idea: no wrapper in the tree, no injected props appearing from nowhere, and it is obvious where each value came from (see 24).
+
+## When not to extract one
+
+A hook is only warranted when the logic uses hooks. If a function does not call `useState`, `useEffect` or anything else hook-shaped, it is a plain function — keep it as one, and it becomes far easier to test and to reuse outside React.
+
+```jsx
+// not a hook: no hooks inside, no reason to pretend
+export const formatSalary = (salary) => `${salary} / year`;
+```
+
+Two other cases where extraction is premature: logic used in exactly one place and unlikely to move, and an extraction that merely renames a single `useState` call without adding behaviour.
+
+  
+### What happens when
+
+  
+`useJobs` is called in both `HomePage` and `Navbar`, to show a list and a count. How many requests go out, and what happens when a job is added?
+
+  
+Two requests on load, and after adding a job only the component that triggered the refetch updates — the other keeps its stale copy until it remounts. Shared server data is the case custom hooks alone do not solve; it needs a cache both callers read from (see 16).
+
+## Gotchas
+
+- Hooks share logic, never state. Two callers get two independent copies.
+- The use prefix is not decorative. Without it the linter cannot enforce the rules, and the function looks safe to call conditionally.
+- The rules of hooks apply inside custom hooks too (see 10). No conditional calls, no early returns above them.
+- Returning an object versus a tuple matters. Tuples let callers rename freely and suit two values; objects are clearer beyond that.
+- Callbacks passed into a hook and used as dependencies must be stable, or the effect re-subscribes on every render.
+- A function with no hooks in it is not a hook. Naming it useX only makes it harder to call.
+
+## Takeaways
+
+- A custom hook is a function starting with use that calls other hooks. Nothing more.
+- Extract to give logic a name and one home, not for its own sake.
+- Every call creates its own state; hooks do not share data between components.
+- Compose hooks by calling them from other hooks.
+- Keep the return shape conventional: a tuple like useState, or a named object.
+- No hooks inside means it should be a plain function.

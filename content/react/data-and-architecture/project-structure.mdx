@@ -1,0 +1,193 @@
+---
+title: "Project structure"
+summary: "Where files go, and how to add a library without regretting it."
+order: 21
+prerequisites: []
+tags: []
+updated: "2026-09-04"
+---
+
+Structure has no correct answer, and it still has better and worse ones. The useful test is not elegance but a question: if you are handed a bug report about job filtering, how many folders do you open before you find the code?
+
+## Two ways to organise
+
+```jsx
+// by type — group things that are the same kind
+src/
+  components/   Button, Modal, JobCard, JobFilters, LoginForm…
+  hooks/        useJobs, useAuth, useDebounce…
+  pages/        HomePage, JobsPage, LoginPage…
+  api/          jobs.js, auth.js
+
+// by feature — group things that change together
+src/
+  features/
+    jobs/       JobCard, JobFilters, useJobs, jobsApi, JobsPage
+    auth/       LoginForm, useAuth, authApi, LoginPage
+  components/   Button, Modal, Input        // genuinely shared
+  hooks/        useDebounce, useClickOutside
+  lib/          apiClient, formatters
+```
+
+Type-based is fine at ten components and degrades from there. The reason is that work does not arrive by type: a job-filtering change touches a component, a hook and an API call, which in a type-based tree live in three folders, while the folder they live in is full of unrelated files.
+
+Feature-based puts everything that changes together in one place, and makes the shared folders meaningful — `components/` stops being a dumping ground and becomes the things genuinely used across features.
+
+**Default:** start type-based for a small app, move to feature-based when a folder passes roughly fifteen files or when the app has more than three or four distinct areas. Do not build the feature structure on day one for an app that may never need it.
+
+## What goes in a feature folder
+
+```jsx
+features/jobs/
+  api.js              fetchJobs, createJob, deleteJob
+  useJobs.js          the query hooks
+  JobCard.jsx
+  JobFilters.jsx
+  JobList.jsx
+  JobsPage.jsx        the route component
+  jobs.test.jsx
+```
+
+One rule keeps this from turning back into a mess: a feature may import from shared folders, and features should not import from each other. When two features genuinely need the same thing, that thing is shared — promote it rather than reaching sideways. Sideways imports are how a codebase becomes one thing you cannot change safely.
+
+<Figure caption="Downward imports keep features removable. Sideways imports make them permanent.">
+<svg viewBox="0 0 740 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Features may import from shared folders below them, but not from each other.">
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="60" y="40" width="180" height="36"/>
+    <rect x="280" y="40" width="180" height="36"/>
+    <rect x="500" y="40" width="180" height="36"/>
+    <rect x="180" y="150" width="380" height="36"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2">
+    
+<path d="M370 76 V148"/>
+    <path d="M590 76 V120 H400 V148"/>
+  </g>
+  <g fill="currentColor">
+    <path d="M340 150 l-4 -8 h8 z"/><path d="M370 150 l-4 -8 h8 z"/><path d="M400 150 l-4 -8 h8 z"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 4">
+    <path d="M242 58 H278"/>
+    <path d="M462 58 H498"/>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="currentColor" text-anchor="middle">
+    <text x="150" y="63">features/jobs</text>
+    <text x="370" y="63">features/auth</text>
+    <text x="590" y="63">features/billing</text>
+    <text x="370" y="173">components · hooks · lib</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="11" font-style="italic" fill="currentColor" text-anchor="middle">
+    <text x="260" y="103">no</text>
+    <text x="480" y="103">no</text>
+    <text x="370" y="208">shared code lives below; features depend downward only</text>
+  </g>
+</svg>
+</Figure>
+
+## Where the odd things live
+
+| Thing | Home |
+|---|---|
+| API calls | Beside the feature that owns them, behind one apiClient in lib/ |
+| Custom hooks | With the feature if specific; hooks/ if generic |
+| Types | Next to the code they describe, not in a global types.ts (see 26) |
+| Tests | Beside the file under test (see 27) |
+| Constants | With the feature; a global constants file collects unrelated junk |
+| Route definitions | One routes.jsx, so the whole map is readable in one place |
+
+One `apiClient` is worth the small effort: base URL, credentials, error handling and the 401 case from chapter 20 exist once rather than in every call.
+
+## Barrel files
+
+An `index.js` re-exporting a folder's contents gives you tidier imports.
+
+```jsx
+// features/jobs/index.js
+export { JobCard } from './JobCard';
+export { JobList } from './JobList';
+export { useJobs } from './useJobs';
+
+import { JobCard, useJobs } from '@/features/jobs';
+```
+
+They cost more than they look. Importing one name pulls in the whole module graph the barrel references, which slows dev-server startup and can defeat tree-shaking, leaving unused code in the bundle. They also create import cycles easily: two files in the same folder importing through the barrel import each other.
+
+**Default:** import from files directly. A barrel is justified at a deliberate public boundary — a shared UI folder, a package — not for every folder.
+
+## Naming and path aliases
+
+- Components in PascalCase, matching the exported name: JobCard.jsx.
+- Hooks in camelCase starting with use: useJobs.js.
+- Everything else in camelCase: apiClient.js, formatSalary.js.
+- One component per file, with the file named after it. index.jsx files everywhere make editor tabs unusable.
+
+```jsx
+// vite.config.js
+resolve: {
+  alias: {
+    '@': path.resolve(__dirname, './src'),
+  },
+},
+
+import { JobCard } from '@/features/jobs/JobCard';   // not ../../../
+```
+
+## Styling
+
+| Approach | Trade |
+|---|---|
+| CSS Modules | Plain CSS, scoped by build. No runtime cost. Two files per component. |
+| Tailwind | Styles beside the markup, no naming, consistent scale. Verbose class strings; a real learning curve. |
+| Runtime CSS-in-JS | Styles as JavaScript, dynamic by nature. Runtime cost, and awkward with Server Components — which is why it has fallen out of favour. |
+
+**Default:** Tailwind or CSS Modules; both are build-time and neither ships a styling runtime. The choice matters less than being consistent — a codebase with three approaches is worse than any one of them.
+
+## Adding a library
+
+Every dependency is a long-term commitment. Five questions before adding one:
+
+1. Is it maintained — commits and releases in the last few months, issues answered?
+2. What does it weigh, and is that acceptable for what it does?
+3. How hard is it to remove? A date formatter is easy; a state library is not.
+4. Could this be fifty lines of your own code? Sometimes yes, and then it should be.
+5. Does it fight React's model — mutating the DOM React manages, or holding state outside it?
+
+For anything you might replace, wrap it. One module owns the dependency and exposes your own interface, so swapping it later is one file rather than two hundred call sites.
+
+```jsx
+// lib/analytics.js — the only file that knows which vendor this is
+import posthog from 'posthog-js';
+
+export const track = (event, properties) => {
+  posthog.capture(event, properties);
+};
+```
+
+Do not wrap everything — a wrapper around React Router would be absurd. Wrap the things you are genuinely unsure about: analytics, error reporting, feature flags, a payment SDK.
+
+  
+### What happens when
+
+  
+A feature folder is deleted because the feature was cut. What tells you whether the structure was working?
+
+  
+Whether anything breaks. With downward-only imports, the folder goes and the app still builds; a few shared components lose a consumer. If other features imported from it, deleting is a refactor instead of a delete — which is the same reason those features cannot be understood or tested alone.
+
+## Gotchas
+
+- Sideways imports between features quietly merge them into one unremovable unit.
+- Barrel files slow dev startup and can defeat tree-shaking, and make import cycles easy.
+- A global utils.js becomes a junk drawer. Name modules after what they do.
+- Restructuring early costs more than it saves. Move to features when a folder is genuinely hard to navigate.
+- Mixed styling approaches are worse than any single one.
+- An unwrapped vendor SDK spreads through the codebase, and replacing it becomes a project.
+
+## Takeaways
+
+- Judge structure by how fast someone finds the code for a bug report.
+- Type-based for small apps; feature-based once areas are distinct.
+- Features import downward from shared code, never sideways from each other.
+- Import from files directly; barrels only at deliberate boundaries.
+- Pick one styling approach and keep it. Prefer build-time over runtime.
+- Weigh every dependency, and wrap the ones you might replace.
