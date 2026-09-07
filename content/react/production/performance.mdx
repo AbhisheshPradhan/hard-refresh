@@ -7,6 +7,8 @@ tags: []
 updated: "2026-09-04"
 ---
 
+Measuring before optimising, and why most memoization achieves nothing.
+
 Almost every React performance problem is one of four things: rendering far too many DOM nodes, doing expensive work on every render, re-rendering a large subtree in response to something small, or shipping too much JavaScript. They have different fixes, and guessing which one you have is how people end up memoizing an app that was never slow for that reason.
 
 ## Measure first
@@ -40,9 +42,9 @@ Even if `JobCard` is wrapped in `memo`, both props differ on every render, so th
 
 | Tool | Memoizes | Use when |
 |---|---|---|
-| memo | A component's render | The component is expensive and its props are usually unchanged |
-| useMemo | A computed value | The computation is expensive, or the identity is needed downstream |
-| useCallback | A function's identity | The function is a dependency or a prop to a memoized child |
+| `memo` | A component's render | The component is expensive and its props are usually unchanged |
+| `useMemo` | A computed value | The computation is expensive, or the identity is needed downstream |
+| `useCallback` | A function's identity | The function is a dependency or a prop to a memoized child |
 
 They only work together. `useCallback` on a handler passed to a component that is not memoized achieves nothing. `memo` on a component receiving an inline object achieves nothing. Memoizing one side of a boundary is the most common wasted effort in React code.
 
@@ -57,8 +59,7 @@ They only work together. `useCallback` on a handler passed to a component that i
     <rect x="240" y="200" width="260" height="32"/>
   </g>
   <g fill="none" stroke="currentColor" stroke-width="1.2">
-    
-<path d="M370 112 V138"/><path d="M370 172 V198"/>
+    <path d="M370 52 V78"/><path d="M370 112 V138"/><path d="M370 172 V198"/>
     <path d="M500 96 H660"/><path d="M500 156 H660"/>
   </g>
   <g fill="currentColor">
@@ -119,29 +120,28 @@ Rendering is not the only cost. Code the user downloads and parses before anythi
 - Check what a dependency costs before adding it, and whether a smaller one exists (see 21).
 - Run a bundle analyser occasionally. The surprises are usually a moment-style library or an icon set imported whole.
 
-  
-### What happens when
+<Callout kind="predict">
+**What happens when**
 
-  
 Someone wraps every component in the app in `memo` as a precaution. What is the effect?
 
-  
 Slightly worse performance and more code. Every render now performs a shallow prop comparison, and most of them fail anyway because of inline objects and functions, so React does the comparison and then re-renders. Where props genuinely are stable, the saving is usually smaller than the comparison cost for a cheap component. Memoization is a targeted fix for a measured problem, not a default.
+</Callout>
 
 ## Gotchas
 
-- Measure a production build. Development is much slower, and StrictMode double-renders.
-- memo compares shallowly. One inline object or arrow function defeats it entirely.
-- Memoizing one side of a boundary does nothing. Both the component and its props must be stable.
-- Context consumers re-render regardless of memo (see 14).
-- useMemo for identity is a correctness tool, not an optimisation, and the two get confused.
-- Re-render does not mean DOM update (see 8), so "too many renders" is not automatically the problem.
+- **Measure a production build.** Development is much slower, and StrictMode double-renders.
+- **`memo` compares shallowly.** One inline object or arrow function defeats it entirely.
+- **Memoizing one side of a boundary does nothing.** Both the component and its props must be stable.
+- **Context consumers re-render regardless of `memo`** (see 14).
+- **`useMemo` for identity is a correctness tool**, not an optimisation, and the two get confused.
+- **Re-render does not mean DOM update** (see 8), so "too many renders" is not automatically the problem.
 
 ## Takeaways
 
 - Find out what is slow before changing anything; highlight updates answers most questions.
 - Referential equality is behind nearly every memoization question.
 - Moving state down or content up removes the re-render; memoization only skips it.
-- memo, useMemo and useCallback work only in matched pairs.
+- `memo`, `useMemo` and `useCallback` work only in matched pairs.
 - The compiler automates most of this, and depends on the Rules of React to do it.
 - Bundle size is often the bigger cost, and route splitting is the cheapest fix.

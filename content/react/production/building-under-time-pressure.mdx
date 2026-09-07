@@ -7,22 +7,26 @@ tags: []
 updated: "2026-09-04"
 ---
 
+The same material assembled at speed, which is a different skill.
+
 Knowing how something works and building it in twenty-five minutes while someone watches are different abilities. This chapter is four components you are likely to be asked for, each with the order to build them in and the follow-ups that always come.
 
 Markup that teaches nothing is elided — a comment stands in for the card layout. Everything with logic in it is complete.
 
 ## How to sequence any of them
 
-1. Restate the requirement in one sentence and name one thing you are deliberately leaving for later. This buys agreement before you write anything.
-2. Build the simplest version that works — usually state plus render, no edge cases.
-3. Say what is missing as you go. "This will fire a request per keystroke; I will debounce it next" is worth more than silently writing the debounce.
-4. Add the hard parts in order of user impact: correctness, then keyboard, then polish.
+1. **Restate the requirement in one sentence** and name one thing you are deliberately leaving for later. This buys agreement before you write anything.
+2. **Build the simplest version that works** — usually state plus render, no edge cases.
+3. **Say what is missing as you go.** "This will fire a request per keystroke; I will debounce it next" is worth more than silently writing the debounce.
+4. **Add the hard parts in order of user impact:** correctness, then keyboard, then polish.
 
 The most common failure is not slowness — it is starting with the hardest part. Someone builds the focus trap before the modal renders, and time runs out with nothing on screen.
 
 ## Autocomplete
 
 <Callout kind="brief">
+THE BRIEF
+
 A search input that fetches suggestions as the user types, shows a dropdown, and lets them pick one with the mouse or the keyboard.
 </Callout>
 
@@ -139,6 +143,8 @@ const onKeyDown = (e) => {
 ## Modal
 
 <Callout kind="brief">
+THE BRIEF
+
 A dialog that opens over the page, closes on Escape or an overlay click, and is usable without a mouse.
 </Callout>
 
@@ -221,6 +227,8 @@ Build order: portal and render, then Escape, then focus in, then focus restore, 
 ## Virtualized list, by hand
 
 <Callout kind="brief">
+THE BRIEF
+
 Render 10,000 rows without freezing the browser. No libraries.
 </Callout>
 
@@ -274,6 +282,8 @@ Twenty rows in the DOM instead of ten thousand. The outer div scrolls, the inner
 ## Tabs as compound components
 
 <Callout kind="brief">
+THE BRIEF
+
 A tab component where the caller controls the labels, the content and the order.
 </Callout>
 
@@ -358,12 +368,12 @@ The `tabIndex` line is the detail worth knowing. In a tablist only the active ta
 
 ## Gotchas
 
-- Starting with the hardest part leaves nothing rendering when time runs out.
-- Forgetting e.preventDefault() on arrow keys moves the caret while navigating a list.
-- Not resetting the active index when results change selects an item from the previous set.
-- Restoring focus on modal close is invisible with a mouse and the most commonly missed step.
-- A virtualized row without absolute positioning collapses the scroll height.
-- Working in silence. An unstated trade-off reads as a mistake.
+- **Starting with the hardest part** leaves nothing rendering when time runs out.
+- **Forgetting `e.preventDefault()` on arrow keys** moves the caret while navigating a list.
+- **Not resetting the active index when results change** selects an item from the previous set.
+- **Restoring focus on modal close** is invisible with a mouse and the most commonly missed step.
+- **A virtualized row without absolute positioning** collapses the scroll height.
+- **Working in silence.** An unstated trade-off reads as a mistake.
 
 ## Takeaways
 

@@ -7,6 +7,8 @@ tags: []
 updated: "2026-09-04"
 ---
 
+Synchronising with the world outside React, and the many times you should not.
+
 An effect connects a component to something React does not control: a server, the document title, a browser API, a third-party widget. It runs after the commit, when the DOM is real (see 8).
 
 That framing is the whole chapter. If nothing outside React is involved, an effect is usually the wrong tool, and most effect bugs are effects that should not exist.
@@ -24,8 +26,8 @@ useEffect(() => {
 
 | Second argument | When the effect runs |
 |---|---|
-| [id] | After this component's first commit, then whenever id changes |
-| [] | After this component's first commit only |
+| `[id]` | After this component's first commit, then whenever `id` changes |
+| `[]` | After this component's first commit only |
 | omitted | After every commit in which this component rendered |
 
 Commit, not render, and the difference matters. A render can be thrown away — interrupted by an urgent update, superseded before it commits, or run a second time by StrictMode. Effects are attached during the commit and flushed after paint, so a render that never commits runs no effects at all. That is the same reason render must stay pure: work that might be discarded must leave no trace (see 8).
@@ -63,8 +65,7 @@ The function you return runs before the effect runs again, and once more when th
     <rect x="240" y="100" width="100" height="28"/>
   </g>
   <g fill="none" stroke="currentColor" stroke-width="1.2">
-    
-<path d="M342 54 H356"/>
+    <path d="M222 54 H236"/><path d="M342 54 H356"/>
     <path d="M222 114 H236"/><path d="M342 114 H356"/><path d="M462 114 H476"/>
   </g>
   <g fill="currentColor">
@@ -115,9 +116,9 @@ const JobPage = ({ id }) => {
 
 Fetching gets the attention, but it is one case among several. Each of these is the same shape: subscribe, then unsubscribe in cleanup.
 
-- Event listeners on window or document.
-- IntersectionObserver for lazy images, impression tracking, infinite scroll (see 23).
-- Writing to localStorage when a value changes.
+- Event listeners on `window` or `document`.
+- `IntersectionObserver` for lazy images, impression tracking, infinite scroll (see 23).
+- Writing to `localStorage` when a value changes.
 - Timers and intervals.
 - Mounting a non-React library into a DOM node, and destroying it on cleanup.
 
@@ -136,8 +137,7 @@ Requests do not return in the order they were sent. Type quickly, and a response
     <text x="340" y="104">GET /api/jobs/2  —  fast</text>
   </g>
   <g fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 4">
-    
-<path d="M560 36 V130"/>
+    <path d="M420 82 V130"/><path d="M560 36 V130"/>
   </g>
   <g font-family="Helvetica, Arial, sans-serif" font-size="11" fill="currentColor" text-anchor="middle">
     <text x="420" y="146">job 2 shown</text>
@@ -169,7 +169,9 @@ useEffect(() => {
 }, [id]);
 ```
 
-Cleanup aborts the previous request before starting the next. The alternative is an `ignore` flag set in cleanup, which lets the request finish but discards the result — use that when the response is worth caching or the request cannot be cancelled.
+Cleanup aborts the previous request before starting the next.
+
+The controller is created inside the effect body, so there is one per effect run, and the cleanup closes over its own. When `id` changes React runs that cleanup, `abort()` rejects the fetch it was tied to, the `await` throws an `AbortError` so `setJob` is never reached, and the `catch` recognises it and does nothing. Only then does the effect run again and create a fresh controller. Because the abort works by rejecting, `finally` runs on a cancelled request too — usually what you want, but worth being deliberate about. The alternative is an `ignore` flag set in cleanup, which lets the request finish but discards the result — use that when the response is worth caching or the request cannot be cancelled.
 
 ## When not to write an effect
 
@@ -178,7 +180,7 @@ Four options for producing a value, in the order you should consider them.
 | Situation | Use |
 |---|---|
 | Value derives from props or state | Compute it during render |
-| That computation is genuinely expensive | useMemo (see 22) |
+| That computation is genuinely expensive | `useMemo` (see 22) |
 | Something should happen because the user did something | An event handler |
 | Something outside React must be kept in sync | An effect |
 
@@ -271,25 +273,24 @@ The difference is what happens when the effect sets state. A layout effect runs 
 
 Two costs follow. Work inside a layout effect delays the frame, so anything slow there is a dropped frame rather than a slow effect. And setting state in one means React renders and commits twice before painting once, so the frame carries double the work — worth it to remove a visible jump, wasteful otherwise.
 
-  
-### What happens when
+<Callout kind="predict">
+**What happens when**
 
-  
 An effect depends on `[jobs]` and, inside, calls `setJobs` with a new array built from the old one. What happens?
 
-  
 An infinite loop. The effect sets state, the new array has a new identity, the dependency comparison fails, the effect runs again. The loop is a symptom: state that is derived from other state usually should not be state at all, and the fix is almost always to compute the value during render instead.
+</Callout>
 
 ## Gotchas
 
-- Effects run after commits, not renders. A discarded or interrupted render runs none — and a component skipped by memo does not re-evaluate its effects at all.
-- Cleanup runs before every re-run, not only on unmount.
-- Aborting rejects the promise. The catch still runs, with an AbortError — filter it, or cancelling a request on purpose shows the user a failure.
-- The effect callback cannot be async. React expects nothing or a cleanup function; declare an async function inside and call it.
-- Inline objects, arrays and functions in the dependency array always differ. Depend on primitives, or move the value inside.
-- An empty dependency array is a claim, not a shortcut. It says the effect reads nothing that changes, and it is how stale closures happen (see 10).
-- Effects do not run on the server, so anything inside one is skipped during server rendering.
-- Two effects running in development means missing cleanup, not a StrictMode bug (see 10).
+- **Effects run after commits, not renders.** A discarded or interrupted render runs none — and a component skipped by `memo` does not re-evaluate its effects at all.
+- **Cleanup runs before every re-run**, not only on unmount.
+- **Aborting rejects the promise.** The `catch` still runs, with an `AbortError` — filter it, or cancelling a request on purpose shows the user a failure.
+- **The effect callback cannot be `async`.** React expects nothing or a cleanup function; declare an async function inside and call it.
+- **Inline objects, arrays and functions in the dependency array always differ.** Depend on primitives, or move the value inside.
+- **An empty dependency array is a claim, not a shortcut.** It says the effect reads nothing that changes, and it is how stale closures happen (see 10).
+- **Effects do not run on the server**, so anything inside one is skipped during server rendering.
+- **Two effects running in development** means missing cleanup, not a StrictMode bug (see 10).
 
 ## Takeaways
 
@@ -298,4 +299,4 @@ An infinite loop. The effect sets state, the new array has a new identity, the d
 - Cleanup runs before each re-run and on unmount; it is what makes subscriptions and requests correct.
 - One effect per job, each with its own dependencies.
 - Derived values belong in render. Responses to user actions belong in handlers.
-- useLayoutEffect runs before paint and blocks it; use it only to prevent a visible flash.
+- `useLayoutEffect` runs before paint and blocks it; use it only to prevent a visible flash.

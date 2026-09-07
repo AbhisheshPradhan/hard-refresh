@@ -7,6 +7,8 @@ tags: []
 updated: "2026-09-04"
 ---
 
+A value that survives renders without causing them, and a handle on a DOM node.
+
 One hook, two jobs. Both come from the same property: a ref is a plain object, `{ current: … }`, that React keeps on the fiber and hands back unchanged on every render. Writing to it changes nothing else.
 
 ## State versus ref
@@ -36,8 +38,7 @@ timerId.current = setInterval(tick, 1000);
     <rect x="450" y="110" width="260" height="28"/>
   </g>
   <g fill="none" stroke="currentColor" stroke-width="1.2">
-    
-<path d="M362 54 H386"/><path d="M502 54 H526"/>
+    <path d="M222 54 H246"/><path d="M362 54 H386"/><path d="M502 54 H526"/>
     <path d="M242 124 H266"/><path d="M422 124 H446"/>
   </g>
   <g fill="currentColor">
@@ -187,23 +188,22 @@ const SearchInput = ({ ref }) => {
 
 The parent gets `{ focus, clear }`. Useful for component libraries; unnecessary most of the time, since a plain node handle is simpler and harder to get wrong.
 
-  
-### What happens when
+<Callout kind="predict">
+**What happens when**
 
-  
 A component keeps a count in a ref, increments it on click, and renders `{countRef.current}`. What appears on screen?
 
-  
 Zero, until something else causes a render. The ref updates on every click, so the value is correct, but nothing tells React to re-render. Then an unrelated state change happens and the number jumps to 7. This is the trap: refs used for values the user is supposed to see produce a screen that is silently out of date.
+</Callout>
 
 ## Gotchas
 
-- Changing a ref never re-renders. If the value is displayed, it belongs in state.
-- Do not read a ref during render, or write one to record what happened. That makes the component impure (see 10). One-time lazy initialisation is the exception, because the write is idempotent.
-- ref.current is null on the first render and after unmount, so guard before using it.
-- A ref on a component does nothing unless the component accepts it and passes it to a DOM element.
-- Using a ref to dodge a re-render usually hides a real problem. Stale screens are harder to debug than extra renders.
-- Refs are per instance, like state. Two listings each have their own.
+- **Changing a ref never re-renders.** If the value is displayed, it belongs in state.
+- **Do not read a ref during render, or write one to record what happened.** That makes the component impure (see 10). One-time lazy initialisation is the exception, because the write is idempotent.
+- **`ref.current` is `null` on the first render** and after unmount, so guard before using it.
+- **A ref on a component does nothing unless the component accepts it** and passes it to a DOM element.
+- **Using a ref to dodge a re-render usually hides a real problem.** Stale screens are harder to debug than extra renders.
+- **Refs are per instance**, like state. Two listings each have their own.
 
 ## Takeaways
 
@@ -211,5 +211,5 @@ Zero, until something else causes a render. The ref updates on every click, so t
 - Use it for values the code needs but the screen does not: timer ids, previous values, library instances.
 - Use it for DOM handles: focus, scroll, measure, integrate.
 - Read it in effects and handlers, never during render.
-- ref is a normal prop now; forwardRef is the older equivalent you will still meet.
+- `ref` is a normal prop now; `forwardRef` is the older equivalent you will still meet.
 - If the user should see the value, it is state, not a ref.

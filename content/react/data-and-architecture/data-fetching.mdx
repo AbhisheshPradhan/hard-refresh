@@ -7,6 +7,8 @@ tags: []
 updated: "2026-09-04"
 ---
 
+From a hand-written effect to a cache, and why each step exists.
+
 React has no opinion about how data arrives. That is why there are several approaches, and why arguments about them are common. They are best understood as a progression: each one solves a specific problem the previous one leaves you with.
 
 ## Step one: fetch in an effect
@@ -132,8 +134,7 @@ The `queryKey` is the identity of the data. Two components using `['jobs']` shar
     <rect x="470" y="124" width="190" height="30"/>
   </g>
   <g fill="none" stroke="currentColor" stroke-width="1.2">
-    
-<path d="M250 74 V122"/>
+    <path d="M100 74 V122"/><path d="M250 74 V122"/>
     <path d="M495 74 V100 H565 V122"/>
     <path d="M635 74 V100"/>
   </g>
@@ -240,23 +241,22 @@ Two caveats. Two suspense queries in one component run in series, because the fi
 
 **Use loaders** when the data belongs to a route and you are already using the router's data APIs — and note they compose with a query client rather than competing with it: a loader can prime the cache.
 
-  
-### What happens when
+<Callout kind="predict">
+**What happens when**
 
-  
 Two components call `useQuery({ queryKey: ['jobs'] })` and mount at the same moment. How many requests are sent?
 
-  
 One. Identical keys are deduplicated, so the second subscribes to the request already in flight. Both then read the same cache entry, which is why they cannot disagree — the property that hand-written fetching in two components does not have.
+</Callout>
 
 ## Gotchas
 
-- fetch does not throw on 404 or 500. Check res.ok or the error branch never runs.
-- Everything the query function reads belongs in the key. A key missing the filter serves the wrong cached result.
-- An empty state is not a loading state. Handle both, or an empty result looks like a hang.
-- Optimistic updates without cancelQueries can be overwritten by a refetch that was already running.
-- Two useSuspenseQuery calls in one component fetch in series. Use the plural form for parallel work.
-- Server data in Redux or Context means writing caching, staleness and invalidation by hand (see 15).
+- **`fetch` does not throw on 404 or 500.** Check `res.ok` or the error branch never runs.
+- **Everything the query function reads belongs in the key.** A key missing the filter serves the wrong cached result.
+- **An empty state is not a loading state.** Handle both, or an empty result looks like a hang.
+- **Optimistic updates without `cancelQueries`** can be overwritten by a refetch that was already running.
+- **Two `useSuspenseQuery` calls in one component fetch in series.** Use the plural form for parallel work.
+- **Server data in Redux or Context** means writing caching, staleness and invalidation by hand (see 15).
 
 ## Takeaways
 

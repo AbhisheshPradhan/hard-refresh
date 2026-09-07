@@ -7,6 +7,8 @@ tags: []
 updated: "2026-09-04"
 ---
 
+Declaring what shows while waiting, and keeping the app responsive while it does.
+
 Two different waits, often confused. Waiting for *something to arrive* — code, data — is Suspense. Waiting for *something slow to render* is transitions. Both are about the interface staying usable meanwhile.
 
 ## Suspense
@@ -177,11 +179,11 @@ const deferredQuery = useDeferredValue(query);
 
 The input updates on every keystroke because it uses `query`. The expensive list uses `deferredQuery`, which lags behind and can be interrupted by the next keystroke.
 
-|  | useTransition | useDeferredValue |
+|   | useTransition | useDeferredValue |
 |---|---|---|
 | Marks | An update you control | A value you receive |
 | Use when | You call the setter | The value comes from props or elsewhere |
-| Gives | isPending | A lagging copy of the value |
+| Gives | `isPending` | A lagging copy of the value |
 
 ### Against a debounce
 
@@ -189,32 +191,31 @@ A debounce waits a fixed time before doing the work at all. A deferred value doe
 
 **Default:** deferred value when the cost is rendering — it adapts to the device instead of guessing a delay that is too slow on a fast machine and too fast on a slow one. **Debounce** when the cost is a request or a rate-limited API, where not firing at all is the whole point (see 13).
 
-  
-### What happens when
+<Callout kind="predict">
+**What happens when**
 
-  
 A single `<Suspense>` wraps the entire app, and a lazily loaded route is opened. What does the user see?
 
-  
 The whole interface disappears — navbar, sidebar, everything — replaced by one fallback, then reappears. It looks like a full page reload, which is the specific experience a single-page app exists to avoid. Move the boundary inside the layout so the chrome stays and only the outlet area shows a fallback.
+</Callout>
 
 ## Gotchas
 
-- A transition does not make anything faster. The same work happens; it stops blocking urgent updates.
-- lazy needs a default export, or the import has to be re-mapped to one.
-- Splitting first-screen components makes things slower. Split what is not needed immediately.
-- A boundary too high blanks the page on every navigation; too many boundaries fill it with spinners.
-- Suspense does not catch errors. A failed lazy import needs an error boundary next to it (see 19).
-- A deploy invalidates chunk hashes. Anyone with the tab already open requests a file that no longer exists, so a lazy route fails for exactly the users who were mid-session. Handle it with an error boundary that offers a reload.
-- Prefetching everything defeats the split. Prefetch on intent, not on render.
-- Two useSuspenseQuery calls in one component run in series, creating a waterfall (see 16).
+- **A transition does not make anything faster.** The same work happens; it stops blocking urgent updates.
+- **`lazy` needs a default export**, or the import has to be re-mapped to one.
+- **Splitting first-screen components makes things slower.** Split what is not needed immediately.
+- **A boundary too high blanks the page on every navigation**; too many boundaries fill it with spinners.
+- **Suspense does not catch errors.** A failed lazy import needs an error boundary next to it (see 19).
+- **A deploy invalidates chunk hashes.** Anyone with the tab already open requests a file that no longer exists, so a lazy route fails for exactly the users who were mid-session. Handle it with an error boundary that offers a reload.
+- **Prefetching everything defeats the split.** Prefetch on intent, not on render.
+- **Two `useSuspenseQuery` calls in one component run in series**, creating a waterfall (see 16).
 
 ## Takeaways
 
 - Suspense declares the waiting state for a region, so components can assume their data exists.
-- lazy plus a dynamic import splits the bundle; routes and heavy libraries are the places to do it.
+- `lazy` plus a dynamic import splits the bundle; routes and heavy libraries are the places to do it.
 - Prefetch on hover or focus to pay the download cost before the user asks, without prefetching the whole app.
 - Boundary placement is the design decision: enough of the page stays useful, without a spinner per component.
-- Transitions mark work as interruptible and give you isPending to show stale content instead of a blank.
-- useDeferredValue is the same idea for a value you did not set yourself.
+- Transitions mark work as interruptible and give you `isPending` to show stale content instead of a blank.
+- `useDeferredValue` is the same idea for a value you did not set yourself.
 - Deferred value for render cost, debounce for request cost.

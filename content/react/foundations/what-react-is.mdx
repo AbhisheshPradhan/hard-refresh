@@ -7,6 +7,8 @@ tags: []
 updated: "2026-09-04"
 ---
 
+A library for describing interfaces, and what it deliberately leaves to you.
+
 React is a JavaScript library for building user interfaces. You describe the interface as a set of **components**, and React keeps the page in sync with the data behind them. It was created at Facebook, and since February 2026 it has been owned by the React Foundation under the Linux Foundation, with Amazon, Meta, Microsoft, Vercel and others as founding members. That changes who stewards the project, not the API.
 
 ## Describing instead of instructing
@@ -78,8 +80,8 @@ The API has three generations of patterns in it, and knowing roughly when each a
 | 2017 | Fiber: the reconciler rewritten so rendering could be paused (9). |
 | 2019 | Hooks. Function components gain state; classes become legacy. |
 | 2022 | Concurrent rendering, automatic batching, transitions. |
-| 2024 | Actions, use, ref as a prop, Server Components stable. |
-| 2025 | React Compiler reaches its first stable release. 19.2 adds , a stable useEffectEvent, and performance tracks in devtools. |
+| 2024 | Actions, `use`, ref as a prop, Server Components stable. |
+| 2025 | React Compiler reaches its first stable release. 19.2 adds `<Activity>`, a stable `useEffectEvent`, and performance tracks in devtools. |
 | 2026 | React, React Native and JSX move to the React Foundation, hosted by the Linux Foundation. |
 
 ## Where React fits among the alternatives
@@ -88,26 +90,25 @@ The four common options are React, Vue, Angular and Svelte. React is the most wi
 
 Worth being honest that this is not a claim about elegance. Vue and Svelte express many of the same ideas with less ceremony. The strongest practical arguments for React are the size of the job market and the ecosystem. The concepts also transfer: components, props and state exist in all of them, and moving between them is mostly a change of syntax.
 
-  
-### What happens when
+<Callout kind="predict">
+**What happens when**
 
-  
 A designer asks for the job count to appear in two more places on the page. What changes in each version above?
 
-  
 In the hand-written version, two more DOM updates in `onFilter`, and in every other function that adds or removes a job. In the React version, nothing — the count is derived from `visible.length` wherever it is displayed, so a new display site is a new line of markup and cannot fall out of sync.
+</Callout>
 
 ## Gotchas
 
-- React does not include routing, data fetching or global state. Every real app adds libraries, and choosing them is part of the job.
-- Next.js, Remix, Gatsby and Astro are built on React, not alternatives to it. What you learn here applies inside all of them.
-- Class components still exist in older codebases. They are not deprecated, but nothing new should be written that way (see the reference section).
-- "Declarative" does not mean automatic. React derives the DOM changes; deciding what the UI should be for a given state is still your job.
+- **React does not include routing, data fetching or global state.** Every real app adds libraries, and choosing them is part of the job.
+- **Next.js, Remix, Gatsby and Astro are built on React**, not alternatives to it. What you learn here applies inside all of them.
+- **Class components still exist in older codebases.** They are not deprecated, but nothing new should be written that way (see the reference section).
+- **"Declarative" does not mean automatic.** React derives the DOM changes; deciding what the UI should be for a given state is still your job.
 
 ## Takeaways
 
 - React keeps the screen in sync with data, so you describe the result rather than the steps.
-- UI = f(state): the same data always produces the same screen.
+- `UI = f(state)`: the same data always produces the same screen.
 - It is a UI library. Routing, data fetching and app-wide state come from elsewhere.
 - The API has class, hook and concurrent-era layers, which is why old code looks different.
 - The core ideas transfer to Vue and Svelte, and to every React meta-framework.

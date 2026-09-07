@@ -7,6 +7,8 @@ tags: []
 updated: "2026-09-04"
 ---
 
+The problems a store solves that Context does not, and the state that belongs in neither.
+
 Chapter 14 ended with reducers and Context, which between them cover a lot. It is worth being precise about where they stop, because that is the entire case for a store.
 
 | Limitation | What it looks like |
@@ -29,8 +31,8 @@ Redux Toolkit is the modern, batteries-included Redux. It removes almost all the
     <rect x="450" y="60" width="150" height="44"/>
   </g>
   <g fill="none" stroke="currentColor" stroke-width="1.2">
-    
-<path d="M392 82 H444"/>
+    <path d="M182 82 H234"/>
+    <path d="M392 82 H444"/>
     <path d="M525 104 V150 H105 V108"/>
   </g>
   <g fill="currentColor">
@@ -225,29 +227,28 @@ Once server data moves out, many apps discover they had very little global clien
 
 **Add it when** you have substantial client state that many parts of the app both read and write, with complex transitions worth expressing as actions — a spreadsheet, a builder, a multi-step configurator, an editor with undo. The devtools and the single audit trail of "what changed and why" become real advantages at that size.
 
-  
-### What happens when
+<Callout kind="predict">
+**What happens when**
 
-  
 A component uses `useSelector((state) => state.jobs.items.filter(isRemote))`, and an unrelated part of the store changes. What happens?
 
-  
 It re-renders. The selector runs, `filter` returns a new array, and the reference comparison fails even though the jobs are identical. Wrap it in `createSelector`, or select `items` and filter in the component — where the array is recreated too, but at least no subscription is triggered by it.
+</Callout>
 
 ## Gotchas
 
-- Immer's draft mutation only works inside createSlice and createReducer. Elsewhere the old rules apply.
-- Do not return and mutate in the same reducer. Do one or the other.
-- A selector returning a new object or array re-renders on every store change. Memoize or select raw values.
-- Non-serializable values in the store — dates, class instances, functions — break devtools and time travel, and the middleware will warn.
-- Putting fetched data in Redux by default is the most common way a store grows into something nobody wants to maintain.
-- A store does not remove the need for good placement. Component state is still correct for most values.
+- **Immer's draft mutation only works inside `createSlice` and `createReducer`.** Elsewhere the old rules apply.
+- **Do not return *and* mutate in the same reducer.** Do one or the other.
+- **A selector returning a new object or array re-renders on every store change.** Memoize or select raw values.
+- **Non-serializable values in the store** — dates, class instances, functions — break devtools and time travel, and the middleware will warn.
+- **Putting fetched data in Redux by default** is the most common way a store grows into something nobody wants to maintain.
+- **A store does not remove the need for good placement.** Component state is still correct for most values.
 
 ## Takeaways
 
 - Redux exists for slice subscriptions, one place for update logic, devtools, and a home for complex transitions.
-- createSlice generates the reducer and the action creators; Immer makes mutating syntax safe inside it.
-- useSelector subscribes to a slice; results are compared by reference, so derived values need createSelector.
+- `createSlice` generates the reducer and the action creators; Immer makes mutating syntax safe inside it.
+- `useSelector` subscribes to a slice; results are compared by reference, so derived values need `createSelector`.
 - Thunks handle async, and produce pending, fulfilled and rejected actions.
-- Normalized state makes lookups and updates direct; createEntityAdapter builds it for you.
+- Normalized state makes lookups and updates direct; `createEntityAdapter` builds it for you.
 - Server data is a cache, not application state. Move it out and re-ask whether you need a store at all.

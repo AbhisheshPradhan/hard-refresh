@@ -7,6 +7,8 @@ tags: []
 updated: "2026-09-04"
 ---
 
+How React decides what changed, and why it can stop halfway through deciding.
+
 ## The problem Fiber was built to solve
 
 A browser tab has one main thread. It runs your JavaScript, calculates layout and paints the screen, and it can only do one of those at a time. While JavaScript runs, nothing is painted and no input is handled.
@@ -54,8 +56,8 @@ The **fiber tree** is React's workspace. One fiber per component instance, creat
     <rect x="110" y="46" width="140" height="32"/>
     <rect x="40" y="116" width="120" height="32"/>
     <rect x="200" y="116" width="120" height="32"/>
-    
-<path d="M180 78 V96 H260 V114"/>
+    <path d="M180 78 V96 H100 V114"/>
+    <path d="M180 78 V96 H260 V114"/>
     <rect x="490" y="46" width="140" height="32"/>
     <rect x="420" y="116" width="120" height="32"/>
     <rect x="580" y="116" width="120" height="32"/>
@@ -143,8 +145,7 @@ The two are roles rather than separate objects that come and go. The tree you ju
     <rect x="505" y="42" width="130" height="30"/>
     <rect x="505" y="102" width="130" height="30"/>
     <rect x="505" y="162" width="130" height="30"/>
-    
-<path d="M170 132 V160"/>
+    <path d="M170 72 V100"/><path d="M170 132 V160"/>
     <path d="M570 72 V100"/><path d="M570 132 V160"/>
   </g>
   <g stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 4" fill="none">
@@ -175,7 +176,7 @@ A re-render means React calls your component function again. Three things cause 
 
 - Its own state changed.
 - A context it consumes changed (see 14).
-- Its parent re-rendered.
+- **Its parent re-rendered.**
 
 That third one is the whole story, and the reason so much re-render advice is wrong. "The component re-rendered because its props changed" is backwards. Props changing is a *consequence* of the parent rendering, not a cause of the child rendering. A child whose props are byte-for-byte identical still re-renders when its parent does.
 
@@ -192,8 +193,8 @@ The condition is narrow — referential equality, not shallow comparison — whi
     <text x="10" y="34">dashed = skipped</text>
   </g>
   <g fill="none" stroke="currentColor" stroke-width="1.2">
-    
-<path d="M370 56 V76 H520 V94"/>
+    <path d="M370 56 V76 H165 V94"/>
+    <path d="M370 56 V76 H520 V94"/>
     <path d="M520 126 V151 H370 V174"/>
     <path d="M520 151 H650 V174"/>
     <path d="M510 151 V174"/>
@@ -260,6 +261,8 @@ A native signals proposal is working its way through the JavaScript standards pr
 
 ## Matching old to new
 
+Before the rule, what `type` holds. For a host element it is a string — `'div'`, `'h3'`. For a component it is the function itself, not its name. Two different function objects with the same name are two different types, which is the whole reason a component defined inside another component remounts on every render: that declaration runs again each time and produces a new object.
+
 Comparing two arbitrary trees for the minimum set of changes is roughly O(n³). For a thousand nodes that is a billion operations, which is not a real option. React gets to O(n) with two assumptions:
 
 **Different type at the same position means a different thing.** React does not attempt to match them. It unmounts the old subtree, destroying its state, and mounts a new one.
@@ -273,6 +276,26 @@ Comparing two arbitrary trees for the minimum set of changes is roughly O(n³). 
 ```
 
 **Keys identify siblings across renders.** Within a list, React matches by key rather than by position, which is what lets it reuse the right fiber when the list is reordered or an item is removed (see 6).
+
+### How the child list is actually walked
+
+React walks the new children and the old fibers forward together, one slot at a time, comparing type and key at each step. While they keep matching it stays on this path — cheap, no allocation, and the common case.
+
+The first slot where type or key differs ends that walk. React then builds a map of the remaining old fibers keyed by their `key`, and looks up each remaining new child in it. Position no longer matters: an item that moved from slot four to slot one is found by key and reused, with its state and its DOM node. Anything left in the map when the new children run out had no match, so it is deleted.
+
+```jsx
+// filtering three cards down to two
+old:  a  b  c
+new:  b  c
+
+// slot 0: new b against old a — keys differ, the in-order walk ends
+// map { a, b, c } is built; b and c are found by key and reused
+// a is still in the map at the end, so its fiber is deleted
+```
+
+Nothing is rebuilt at the mismatch. All that changes is how React looks the old children up, and what it finds is the whole fiber — state, hooks and the DOM node come with it.
+
+Two things follow. The map is scoped to one parent's child list, which is why keys need only be unique among siblings. And without keys the map path is useless: every unkeyed element has a `key` of `null`, so lookups cannot tell them apart and React is left matching by position alone.
 
 Note precisely what a key does. It does not stop children re-rendering — children of a re-rendering parent re-render regardless. It decides whether React *reuses* an existing fiber or throws it away and mounts a fresh one. Keys prevent remounting, and remounting is what destroys state.
 
@@ -355,8 +378,7 @@ const deferredQuery = useDeferredValue(query);
     <text x="530" y="129">resumes, then commits</text>
   </g>
   <g stroke="currentColor" stroke-width="1" stroke-dasharray="4 4">
-    
-<path d="M440 44 V150"/>
+    <path d="M320 44 V150"/><path d="M440 44 V150"/>
   </g>
   <g fill="none" stroke="currentColor" stroke-width="1.5">
     <path d="M320 20 V44"/>
@@ -373,23 +395,23 @@ const deferredQuery = useDeferredValue(query);
 </svg>
 </Figure>
 
-  
-### What happens when
+<Callout kind="predict">
+**What happens when**
 
-  A parent re-renders. One child is wrapped in `memo` and receives `job={job}` where `job` is unchanged, plus `onSelect={() => select(job.id)}` written inline. Does the child re-render?
+A parent re-renders. One child is wrapped in `memo` and receives `job={job}` where `job` is unchanged, plus `onSelect={() => select(job.id)}` written inline. Does the child re-render?
 
-  
 Yes. `memo` compares props shallowly, and the inline arrow function is a brand new function on every parent render, so the comparison fails every time. The memo does nothing except add a comparison you pay for. This is the most common way memoization is defeated (see 22).
+</Callout>
 
 ## Gotchas
 
-- React never reads the DOM to diff. It compares the new element tree against its own fibers, so a change made outside React goes unnoticed.
-- Defining a component inside another component remounts it on every render. The inner function is a new type each time, so React unmounts the old subtree and mounts a new one. Inputs lose focus, state resets, effects re-run. Define components at module level.
-- Re-render does not mean DOM update. React compares first and often writes nothing (see 8).
-- memo compares shallowly. Inline objects, arrays and functions as props defeat it.
-- A transition does not make rendering faster. The same work happens; it just stops blocking more urgent work.
-- Changing an element's type at the same position destroys state, even when the children look identical.
-- Context consumers re-render when the context value changes, regardless of memo on components in between (see 14).
+- **React never reads the DOM to diff.** It compares the new element tree against its own fibers, so a change made outside React goes unnoticed.
+- **Defining a component inside another component remounts it on every render.** The inner function is a new type each time, so React unmounts the old subtree and mounts a new one. Inputs lose focus, state resets, effects re-run. Define components at module level.
+- **Re-render does not mean DOM update.** React compares first and often writes nothing (see 8).
+- **`memo` compares shallowly.** Inline objects, arrays and functions as props defeat it.
+- **A transition does not make rendering faster.** The same work happens; it just stops blocking more urgent work.
+- **Changing an element's type at the same position destroys state**, even when the children look identical.
+- **Context consumers re-render when the context value changes**, regardless of `memo` on components in between (see 14).
 
 ## Takeaways
 

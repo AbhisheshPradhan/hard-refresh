@@ -7,6 +7,8 @@ tags: []
 updated: "2026-09-04"
 ---
 
+Rendering outside the tree, managing focus, and building for people who are not using a mouse.
+
 A modal is the standard example for both halves of this chapter: it needs to escape its parent's CSS, and it is the component most often built in a way that excludes people.
 
 ## Portals
@@ -43,8 +45,7 @@ What does not change is React. Context still reaches the portal's children, and 
     <rect x="460" y="150" width="180" height="26"/>
   </g>
   <g fill="none" stroke="currentColor" stroke-width="1.2">
-    
-<path d="M120 108 V137 H128"/>
+    <path d="M90 66 V95 H98"/><path d="M120 108 V137 H128"/>
     <path d="M450 66 V95 H458"/><path d="M450 66 V163 H458"/>
   </g>
   <g font-family="Helvetica, Arial, sans-serif" font-size="11" fill="currentColor" text-anchor="middle">
@@ -160,8 +161,8 @@ A placeholder is not a label. It disappears when typing starts, is often too low
 ### Keyboard
 
 - Everything interactive must be reachable by Tab and operable by Enter or Space.
-- Never remove focus outlines without replacing them with something visible. :focus-visible shows them for keyboard users only.
-- Tab order follows DOM order — avoid positive tabIndex values, which override it and are almost always a mistake.
+- Never remove focus outlines without replacing them with something visible. `:focus-visible` shows them for keyboard users only.
+- Tab order follows DOM order — avoid positive `tabIndex` values, which override it and are almost always a mistake.
 
 ### Announcing changes
 
@@ -183,24 +184,23 @@ A screen reader user does not see a toast appear or a result count change. A liv
 
 Unplug the mouse and use the feature. Then run through it with the browser's built-in screen reader. Axe DevTools catches a useful subset automatically, and `eslint-plugin-jsx-a11y` catches common mistakes as you type — but no automated tool catches a focus trap that never returns focus, which is why the keyboard pass matters.
 
-  
-### What happens when
+<Callout kind="predict">
+**What happens when**
 
-  
 A modal opens, the user tabs, and focus moves to a link in the navbar behind the overlay. What is the experience?
 
-  
 For a sighted mouse user, nothing — they never notice. For a keyboard user, focus has vanished behind a dark overlay and they are tabbing through invisible controls with no way to tell where they are. It is the clearest example of a bug that is invisible to the person who built it, and the reason for the keyboard pass.
+</Callout>
 
 ## Gotchas
 
-- Events bubble through the React tree, not the DOM tree, so portal clicks reach the component that rendered them.
-- Restoring focus on close is the most commonly missed step.
-- A div with onClick is not a button — no focus, no keyboard, no announcement.
-- Placeholders are not labels.
-- Removing focus outlines without a replacement makes an app unusable by keyboard.
-- A live region added at the same moment as its content is often not announced; render it empty first.
-- aria-modal does not make the background inert on its own; that needs the native dialog, the inert attribute, or a library.
+- **Events bubble through the React tree, not the DOM tree**, so portal clicks reach the component that rendered them.
+- **Restoring focus on close is the most commonly missed step.**
+- **A `div` with `onClick` is not a button** — no focus, no keyboard, no announcement.
+- **Placeholders are not labels.**
+- **Removing focus outlines without a replacement** makes an app unusable by keyboard.
+- **A live region added at the same moment as its content** is often not announced; render it empty first.
+- **`aria-modal` does not make the background inert on its own**; that needs the native dialog, the `inert` attribute, or a library.
 
 ## Takeaways
 

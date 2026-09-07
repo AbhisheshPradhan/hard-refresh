@@ -7,15 +7,17 @@ tags: []
 updated: "2026-09-04"
 ---
 
+A short contract you have to keep, and what breaks when you do not.
+
 React makes assumptions about the code you write in order to render it in pieces, reuse work, and skip components. Those assumptions are written down as rules. Break one and the failure usually shows up somewhere else entirely, which is why they are worth knowing as rules rather than rediscovering as bugs.
 
-  Only call hooks at the top level of a component or another hook.
-  Only call hooks from React function components or from custom hooks.
-  Components and hooks must be pure: same inputs, same output, no side effects while rendering.
-  Never mutate props, state, or values returned by hooks.
-  Never mutate values after passing them to JSX.
-  React calls your components and hooks. You do not call them yourself.
-  Never pass a hook around as a value. Call it; do not store it, forward it, or choose one dynamically.
+1. Only call hooks at the top level of a component or another hook.
+2. Only call hooks from React function components or from custom hooks.
+3. Components and hooks must be pure: same inputs, same output, no side effects while rendering.
+4. Never mutate props, state, or values returned by hooks.
+5. Never mutate values after passing them to JSX.
+6. React calls your components and hooks. You do not call them yourself.
+7. Never pass a hook around as a value. Call it; do not store it, forward it, or choose one dynamically.
 
 ## Why hooks must be at the top level
 
@@ -54,8 +56,8 @@ const JobFilters = ({ isLoggedIn }) => {
     <text x="431" y="116">slot 2   never called</text>
   </g>
   <g fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 4">
-    
-</g>
+    <path d="M322 63 H411"/>
+  </g>
   <g fill="currentColor">
     <path d="M413 63 l-8 -4 v8 z"/>
   </g>
@@ -89,7 +91,7 @@ The reason is that a slot is claimed by the *call*, not by what happens inside i
 
 So the requirement is narrow: the same hooks, in the same order, on every render. Everything else is yours. Put the branch in the dependency array, in the value you return, or in the body of the callback — anywhere except around the call itself.
 
-When you genuinely need a hook only some of the time, the component boundary is where conditionality is legal. Move the hook into its own component and render that component conditionally: `{isLoggedIn && }`. The hook is then unconditional within its component, and React mounts and unmounts the whole thing — which it is designed to do. People who learn the rule as "no conditions near hooks" end up writing far more awkward code than it asks for, and usually miss this option entirely.
+When you genuinely need a hook only some of the time, the component boundary is where conditionality is legal. Move the hook into its own component and render that component conditionally: `{isLoggedIn && <ActivityTracker user={user} />}`. The hook is then unconditional within its component, and React mounts and unmounts the whole thing — which it is designed to do. People who learn the rule as "no conditions near hooks" end up writing far more awkward code than it asks for, and usually miss this option entirely.
 
 The second rule follows from the same mechanism. Hook state lives on a fiber, and a plain function called outside rendering has no fiber, so there is nothing to store state on. Custom hooks work because React is still the one rendering the component that called them.
 
@@ -182,8 +184,7 @@ useEffect(() => {
     <text x="370" y="114">interval created once in render 1 — its closure holds seconds = 0</text>
   </g>
   <g fill="none" stroke="currentColor" stroke-width="1.2">
-    
-<path d="M425 126 V152"/><path d="M665 126 V152"/>
+    <path d="M185 126 V152"/><path d="M425 126 V152"/><path d="M665 126 V152"/>
   </g>
   <g font-family="Helvetica, Arial, sans-serif" font-size="11" fill="currentColor" text-anchor="middle">
     <text x="185" y="170">tick: setSeconds(0 + 1)</text>
@@ -224,14 +225,13 @@ In development, `StrictMode` deliberately calls your component functions twice, 
 
 It is a purity test. If the second call produces something different, or the second mount leaves two of something running, the code was already broken and the double invocation made it visible now instead of intermittently later. An effect that survives being mounted twice is an effect with correct cleanup.
 
-  
-### What happens when
+<Callout kind="predict">
+**What happens when**
 
-  
 An effect opens a WebSocket and has no cleanup. What do you see in development under StrictMode, and what does it tell you about production?
 
-  
 Two open sockets. In production the effect mounts once, so it looks fine — until the component unmounts and remounts on a route change, and now there are two sockets in production too, with no way to close the first. StrictMode did not create the leak; it moved the discovery to the first minute rather than the first month.
+</Callout>
 
 ## The linter
 
@@ -241,14 +241,14 @@ These rules also stopped being merely good practice. React Compiler memoizes you
 
 ## Gotchas
 
-- The rule is about the call, not the contents. A hook that runs on some renders and not others breaks the slot order; a condition inside the callback does not.
-- An early return before a hook is the most common violation. A loading guard placed above useEffect looks harmless and breaks the slot order.
-- Conditions inside a hook are fine. `useEffect(() => { if (x) … })` is legal; `if (x) useEffect(…)` is not.
-- Custom hooks are hook calls. They obey the same two rules, including inside your own useJobs.
-- A hook stored in a variable or passed as a prop defeats both the linter and the compiler, even if it happens to run correctly.
-- Mutating state and calling the setter with the same reference does nothing. No warning, no render.
-- Do not silence StrictMode's double effect with a ref guard. That hides the missing cleanup rather than fixing it.
-- Math.random() and Date.now() during render are impure. In a state initializer, an effect or a handler they are fine.
+- **The rule is about the call, not the contents.** A hook that runs on some renders and not others breaks the slot order; a condition inside the callback does not.
+- **An early return before a hook is the most common violation.** A loading guard placed above `useEffect` looks harmless and breaks the slot order.
+- **Conditions inside a hook are fine.** `useEffect(() => { if (x) … })` is legal; `if (x) useEffect(…)` is not.
+- **Custom hooks are hook calls.** They obey the same two rules, including inside your own `useJobs`.
+- **A hook stored in a variable or passed as a prop** defeats both the linter and the compiler, even if it happens to run correctly.
+- **Mutating state and calling the setter with the same reference does nothing.** No warning, no render.
+- **Do not silence StrictMode's double effect with a ref guard.** That hides the missing cleanup rather than fixing it.
+- **`Math.random()` and `Date.now()` during render are impure.** In a state initializer, an effect or a handler they are fine.
 
 ## Takeaways
 
@@ -257,6 +257,6 @@ These rules also stopped being merely good practice. React Compiler memoizes you
 - Render may run more than once and be discarded, so it must be pure.
 - Mutation defeats React's identity comparison: new value, new reference.
 - Functions capture the render that made them. Anything long-lived captures the render it was created in.
-- For a value an effect must read but not re-subscribe to, useEffectEvent is the current answer; a ref is the older one.
+- For a value an effect must read but not re-subscribe to, `useEffectEvent` is the current answer; a ref is the older one.
 - StrictMode's double invocation is a purity and cleanup test, and is development-only.
 - The linter enforces the contract, and the compiler now depends on it.

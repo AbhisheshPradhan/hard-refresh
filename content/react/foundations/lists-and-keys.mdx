@@ -7,6 +7,8 @@ tags: []
 updated: "2026-09-04"
 ---
 
+Rendering data, and telling React which item is which.
+
 There is no loop syntax in JSX. A list is an array of elements, produced with `map`.
 
 ```jsx
@@ -21,7 +23,7 @@ There is no loop syntax in JSX. A list is an array of elements, produced with `m
 
 ## What a key is for
 
-Between renders React has to work out which new element corresponds to which existing one. Without keys it matches by position: first to first, second to second. With keys it matches by key, wherever the item has moved to.
+Between renders React has to work out which new element corresponds to which existing one. Without keys it matches by position: first to first, second to second. With keys it walks in step while the keys agree, and from the first disagreement onwards looks each remaining child up by key instead — so an item is found wherever it has moved to (see 9).
 
 Matching decides **reuse**. Matched, React keeps the existing component instance along with its state, its DOM node and its scroll position. Unmatched, React destroys the old one and mounts a new one from scratch.
 
@@ -69,10 +71,10 @@ Matching decides **reuse**. Matched, React keeps the existing component instance
 
 | Key | Verdict |
 |---|---|
-| job.id | Correct. Stable, unique, tied to the item |
-| A composite like `${type}-${id}` | Fine when no single field is unique |
+| `job.id` | Correct. Stable, unique, tied to the item |
+| A composite like `` `${type}-${id}` `` | Fine when no single field is unique |
 | Array index | Only for lists that never reorder, filter or delete |
-| Math.random() | Never. A new key each render remounts everything, every time |
+| `Math.random()` | Never. A new key each render remounts everything, every time |
 
 Keys need to be unique among siblings, not globally. Two separate lists on the same page can both use `1`.
 
@@ -117,27 +119,26 @@ if (visible.length === 0) {
 
 Filter before mapping, and handle empty explicitly. A list that silently renders nothing looks like a bug to the user.
 
-  
-### What happens when
+<Callout kind="predict">
+**What happens when**
 
-  
 Three job cards use `key={index}`. Each has a "More" toggle, and the second one is expanded. The first job is deleted. What does the user see?
 
-  
 The third job now appears expanded. Removing the first shifts everything up, so the previously-second job takes index 0 and the third takes index 1 — where the expanded state was stored. The data is correct; the state is on the wrong row. With `key={job.id}`, each card keeps its own state and only the deleted one disappears.
+</Callout>
 
 ## Gotchas
 
-- Keys prevent remounting, not re-rendering. Children of a re-rendering parent re-render regardless (see 9).
-- key is not passed to the component. Pass the id separately if the child needs it.
-- The key belongs on the outermost element returned by the callback, including on a fragment: `<Fragment key={id}>`.
-- Index keys are fine for static lists and dangerous the moment items can be added, removed or reordered.
-- A random key remounts every item on every render, destroying state and focus and costing far more than the diff it was meant to avoid.
-- Duplicate keys among siblings cause silently wrong reuse as well as a warning.
+- **Keys prevent remounting, not re-rendering.** Children of a re-rendering parent re-render regardless (see 9).
+- **`key` is not passed to the component.** Pass the id separately if the child needs it.
+- **The key belongs on the outermost element returned by the callback**, including on a fragment: `<Fragment key={id}>`.
+- **Index keys are fine for static lists** and dangerous the moment items can be added, removed or reordered.
+- **A random key remounts every item on every render**, destroying state and focus and costing far more than the diff it was meant to avoid.
+- **Duplicate keys among siblings** cause silently wrong reuse as well as a warning.
 
 ## Takeaways
 
-- Lists come from map, which returns an array of elements.
+- Lists come from `map`, which returns an array of elements.
 - A key tells React which existing instance a new element corresponds to.
 - Matched means reused with its state; unmatched means destroyed and rebuilt.
 - Use a stable id. Index keys tie state to position rather than to the item.

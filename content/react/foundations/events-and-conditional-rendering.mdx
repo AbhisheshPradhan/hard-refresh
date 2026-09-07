@@ -7,6 +7,8 @@ tags: []
 updated: "2026-09-04"
 ---
 
+Responding to the user, and showing different things for different state.
+
 Event handlers are props. They are camelCase, and they take a function rather than a string.
 
 ```jsx
@@ -76,8 +78,8 @@ Three tools, chosen by shape rather than preference.
 | Shape | Use |
 |---|---|
 | One thing or another | Ternary |
-| Something or nothing | && |
-| Several branches, or an early exit | if above the return |
+| Something or nothing | `&&` |
+| Several branches, or an early exit | `if` above the return |
 
 ```jsx
 // one or the other
@@ -112,29 +114,28 @@ const JobList = ({ jobs, loading, error }) => {
 
 That last shape is worth adopting as a habit. Loading, error and empty are three states every data-driven component has, and handling them as early returns keeps the main path flat and readable.
 
-  
-### What happens when
+<Callout kind="predict">
+**What happens when**
 
-  
 A card has `onClick={openJob}` and contains a Delete button with `onClick={() => remove(job.id)}`. The user clicks Delete. What happens?
 
-  
 The job is deleted *and* the card opens, because the click bubbles from the button up to the card. The card then tries to display a job that no longer exists. Add `e.stopPropagation()` in the button's handler — or, better, do not make the whole card clickable when it contains its own controls.
+</Callout>
 
 ## Gotchas
 
-- onclick is not a JSX prop. It must be onClick, and lowercase fails silently.
-- onChange in React fires on every keystroke, unlike the DOM's change event, which fires on blur.
-- A ternary returning '' renders nothing, but a ternary returning 0 renders a zero (see 2).
-- Nesting ternaries quickly becomes unreadable. Two levels is usually the point to switch to early returns.
-- An inline arrow handler is a new function every render, which matters only once memoization is involved (see 22).
-- Disable buttons during async work. Without it, a double click submits twice.
+- **`onclick` is not a JSX prop.** It must be `onClick`, and lowercase fails silently.
+- **`onChange` in React fires on every keystroke**, unlike the DOM's `change` event, which fires on blur.
+- **A ternary returning `''` renders nothing, but a ternary returning `0` renders a zero** (see 2).
+- **Nesting ternaries quickly becomes unreadable.** Two levels is usually the point to switch to early returns.
+- **An inline arrow handler is a new function every render**, which matters only once memoization is involved (see 22).
+- **Disable buttons during async work.** Without it, a double click submits twice.
 
 ## Takeaways
 
 - Event props are camelCase and take a function reference, not a call.
 - Wrap in an arrow function when the handler needs arguments.
-- e.preventDefault() stops browser defaults; e.stopPropagation() stops bubbling.
+- `e.preventDefault()` stops browser defaults; `e.stopPropagation()` stops bubbling.
 - React delegates at the root, so propagation follows the component tree.
-- Ternary for either/or, && for something-or-nothing, early returns for branches.
+- Ternary for either/or, `&&` for something-or-nothing, early returns for branches.
 - Loading, error and empty are states worth handling explicitly every time.

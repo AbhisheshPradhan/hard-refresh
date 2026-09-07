@@ -7,6 +7,8 @@ tags: []
 updated: "2026-09-04"
 ---
 
+Testing what users do, and not testing what they cannot see.
+
 A test is only worth having if it fails when the app is broken and passes when it is not. Most bad React tests fail the second half: they break during refactors that changed nothing a user would notice, and the team learns to update them without reading them.
 
 React Testing Library is built around avoiding that. It gives you no access to state, props or internals — only what is rendered.
@@ -30,10 +32,10 @@ Prefer roles and accessible names, because that is how the interface is actually
 
 | Query | Behaviour |
 |---|---|
-| getBy… | Throws if not found. For things that must be there now |
-| queryBy… | Returns null. The only one for asserting absence |
-| findBy… | Returns a promise, retries. For things that appear later |
-| …AllBy… | The same, for multiple matches |
+| `getBy…` | Throws if not found. For things that must be there now |
+| `queryBy…` | Returns null. The only one for asserting absence |
+| `findBy…` | Returns a promise, retries. For things that appear later |
+| `…AllBy…` | The same, for multiple matches |
 
 ## Interacting
 
@@ -178,10 +180,10 @@ Worth doing for hooks with real logic of their own. A hook that is used by one c
 
 ## What not to test
 
-- Implementation details. State values, prop names, whether a child component rendered, how many times something re-rendered.
-- Library behaviour. React Router navigating, a date library formatting. They have their own tests.
-- Snapshots of whole components. They fail on every markup change and are approved without reading, which is worse than no test.
-- Static markup. A test asserting a heading contains the text you passed it verifies nothing.
+- **Implementation details.** State values, prop names, whether a child component rendered, how many times something re-rendered.
+- **Library behaviour.** React Router navigating, a date library formatting. They have their own tests.
+- **Snapshots of whole components.** They fail on every markup change and are approved without reading, which is worse than no test.
+- **Static markup.** A test asserting a heading contains the text you passed it verifies nothing.
 
 The test to write is the one that would have caught the last bug you shipped.
 
@@ -197,30 +199,29 @@ This is also why coverage is a poor target. It measures which lines executed, no
 
 **Default:** mostly integration tests with React Testing Library, unit tests for anything with real logic — reducers and validators repay them immediately — and a handful of Playwright tests for the few journeys that must never break, such as signing in and submitting a job.
 
-  
-### What happens when
+<Callout kind="predict">
+**What happens when**
 
-  
 A component is refactored from one file into three, with state moved to a reducer. The behaviour is identical. What should happen to its tests?
 
-  
 Nothing — they should pass untouched. If they fail, they were testing the structure rather than the behaviour, and the failure is noise. A test suite that has to be updated alongside every refactor is charging you rent without insuring anything.
+</Callout>
 
 ## Gotchas
 
-- Every user-event call is async. A missing await is the usual source of flakiness.
-- getBy throws, so it cannot assert absence. Use queryBy with not.toBeInTheDocument().
-- Act warnings mean an update happened after the test ended — await the pending thing rather than wrapping in act.
-- Query retries make failure tests time out. Disable them in the test client.
-- A fresh QueryClient per test, or cached data leaks between them.
-- fireEvent can succeed where a real interaction would fail, such as clicking a disabled button.
+- **Every `user-event` call is async.** A missing `await` is the usual source of flakiness.
+- **`getBy` throws, so it cannot assert absence.** Use `queryBy` with `not.toBeInTheDocument()`.
+- **Act warnings mean an update happened after the test ended** — await the pending thing rather than wrapping in `act`.
+- **Query retries make failure tests time out.** Disable them in the test client.
+- **A fresh `QueryClient` per test**, or cached data leaks between them.
+- **`fireEvent` can succeed where a real interaction would fail**, such as clicking a disabled button.
 
 ## Takeaways
 
 - A good test fails only when behaviour changes, and survives refactors.
 - Query by role and accessible name; test ids are the fallback.
-- getBy now, queryBy for absence, findBy for later.
-- user-event over fireEvent, and await every call.
+- `getBy` now, `queryBy` for absence, `findBy` for later.
+- `user-event` over `fireEvent`, and await every call.
 - Mock the network with MSW, and cover the error and empty paths.
 - Wrap providers in one helper, with retries disabled.
 - Mostly integration tests, units for real logic, a few end-to-end journeys.

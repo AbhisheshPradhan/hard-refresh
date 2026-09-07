@@ -42,7 +42,7 @@ both sides.
 
 ```
 <Figure caption="…">   wraps a raw inline <svg>              38 uses
-<Callout kind="…">     brief | build | note | predict        25 uses
+<Callout kind="…">     predict | brief | build | note        52 uses
 ```
 
 The SVGs use `currentColor` and carry their own `role="img"` and `aria-label`, so
@@ -76,8 +76,3 @@ there is no answer-position bias to work around.
   are shell, CSS or JSON.
 - Before/after snippets lost their changed-line emphasis in conversion, in 51
   places.
-- The 28 workbook chapters lost inline `code` and **bold** inside Gotchas lists,
-  Takeaways lists and table cells — 417 marks in total — and their 27 "What happens
-  when" boxes came through as plain `###` headings rather than `<Callout>`. The
-  other 17 documents were converted later and do not have this problem. Re-running
-  the newer converter over the 28 would fix both, keeping the existing frontmatter.

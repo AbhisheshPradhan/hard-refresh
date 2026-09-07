@@ -7,6 +7,8 @@ tags: []
 updated: "2026-09-04"
 ---
 
+Controlled inputs, submission, and the states a real form moves through.
+
 An input in the browser holds its own value. In React you usually want state to hold it instead, so the rest of the component can read it, validate it and submit it. An input wired that way is **controlled**.
 
 ```jsx
@@ -48,9 +50,9 @@ A `<select>`'s initial state must match one of its option values exactly. Start 
 
 ## One state per field, or one object
 
-|  | One per field | One object |
+|   | One per field | One object |
 |---|---|---|
-| Reading | title | form.title |
+| Reading | `title` | `form.title` |
 | Writing | `setTitle(v)` | `setForm({ ...form, title: v })` |
 | Best for | A handful of fields | Many fields, or resetting all at once |
 
@@ -96,8 +98,8 @@ The version above ignores everything that happens after the user clicks. A real 
     <rect x="460" y="120" width="130" height="34"/>
   </g>
   <g fill="none" stroke="currentColor" stroke-width="1.2">
-    
-<path d="M382 87 V37 H454"/>
+    <path d="M162 87 H234"/>
+    <path d="M382 87 V37 H454"/>
     <path d="M382 87 V137 H454"/>
     <path d="M525 154 V180 H95 V106"/>
   </g>
@@ -237,29 +239,28 @@ const { register, handleSubmit, formState: { errors } } = useForm();
 </form>
 ```
 
-  
-### What happens when
+<Callout kind="predict">
+**What happens when**
 
-  
 A form has `const [type, setType] = useState('')` and a select whose first option is `<option value="Full-Time">`. The user submits without touching the dropdown. What is sent?
 
-  
 An empty string. The browser displays the first option because a select with no matching value shows its first, but state was never updated — nothing changed, so `onChange` never fired. Initialise the state to `'Full-Time'`, or add an explicit placeholder option with an empty value so the mismatch is visible.
+</Callout>
 
 ## Gotchas
 
-- value without onChange gives a read-only field and a console warning.
-- Switching value from undefined to a string flips an input from uncontrolled to controlled and warns. Initialise with '', never undefined.
-- Checkboxes use checked and e.target.checked, not value.
-- Labels use htmlFor, and a label without one is a real accessibility failure, not a lint nit (see 25).
-- Put onSubmit on the form, not on the button, so Enter works.
-- Client validation is for the user, not for safety. The server must validate too.
+- **`value` without `onChange`** gives a read-only field and a console warning.
+- **Switching `value` from `undefined` to a string** flips an input from uncontrolled to controlled and warns. Initialise with `''`, never `undefined`.
+- **Checkboxes use `checked` and `e.target.checked`**, not `value`.
+- **Labels use `htmlFor`**, and a label without one is a real accessibility failure, not a lint nit (see 25).
+- **Put `onSubmit` on the form**, not on the button, so Enter works.
+- **Client validation is for the user, not for safety.** The server must validate too.
 
 ## Takeaways
 
-- A controlled input pairs value with onChange; a select's initial state must match an option.
+- A controlled input pairs `value` with `onChange`; a select's initial state must match an option.
 - One state per field avoids the spread mistakes of a single object.
-- e.preventDefault() on submit, and shape the payload for the API.
+- `e.preventDefault()` on submit, and shape the payload for the API.
 - Model the form as idle, submitting, success, error — one status value, not several booleans.
 - Disable the submit button while submitting.
 - Uncontrolled inputs are fine when nothing depends on the value until submit; Actions and React Hook Form take over the boilerplate at scale.

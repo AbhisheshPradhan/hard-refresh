@@ -7,14 +7,16 @@ tags: []
 updated: "2026-09-04"
 ---
 
+What actually happens between calling a setter and the screen changing.
+
 ## Four phases
 
 Calling a state setter does not change the DOM. It starts a sequence of four phases, and almost every confusing React behaviour comes from mistaking one phase for another.
 
-1. Trigger. Something schedules an update: a state setter, a parent re-rendering, or the initial mount.
-2. Render. React calls your component function and collects what it returns. Nothing touches the DOM. This work can be paused, restarted, or thrown away.
-3. Commit. React applies the differences to the real DOM. This phase runs to completion and cannot be interrupted.
-4. Effects. After the browser paints, React runs your effects.
+1. **Trigger.** Something schedules an update: a state setter, a parent re-rendering, or the initial mount.
+2. **Render.** React calls your component function and collects what it returns. Nothing touches the DOM. This work can be paused, restarted, or thrown away.
+3. **Commit.** React applies the differences to the real DOM. This phase runs to completion and cannot be interrupted.
+4. **Effects.** After the browser paints, React runs your effects.
 
 <Figure caption="Render produces a description. Commit applies it. Only commit touches the DOM.">
 <svg viewBox="0 0 740 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The four phases of the render cycle: trigger, render, commit and effects, with the browser paint between commit and effects.">
@@ -23,8 +25,7 @@ Calling a state setter does not change the DOM. It starts a sequence of four pha
     <rect x="200" y="62" width="150" height="58"/>
     <rect x="390" y="62" width="150" height="58"/>
     <rect x="580" y="62" width="150" height="58"/>
-    
-<path d="M352 91 H386"/><path d="M542 91 H576"/>
+    <path d="M162 91 H196"/><path d="M352 91 H386"/><path d="M542 91 H576"/>
   </g>
   <g fill="currentColor">
     <path d="M198 91 l-8 -4 v8 z"/><path d="M388 91 l-8 -4 v8 z"/><path d="M578 91 l-8 -4 v8 z"/>
@@ -198,14 +199,13 @@ const JobDescription = ({ text }) => {
 
 Measuring belongs after commit, when the node exists (see 12 for refs, 11 for the effect that reads them).
 
-  
-### What happens when
+<Callout kind="predict">
+**What happens when**
 
-  
 You call `setShowFull(true)` inside a click handler, then read the DOM on the very next line to check the paragraph got longer. What do you see?
 
-  
 The old text. The setter schedules an update; it does not render synchronously. By the time your next line runs, phases two and three have not happened yet. This is the same reason reading the state variable straight after setting it gives you the old value (see 4).
+</Callout>
 
 ## Where React ends and the DOM begins
 
@@ -227,8 +227,8 @@ The practical shape is still one reconciler and several renderers. It is just th
     <rect x="450" y="168" width="180" height="34"/>
   </g>
   <g fill="none" stroke="currentColor" stroke-width="1.5">
-    
-<path d="M410 64 V84 H540 V98"/>
+    <path d="M330 64 V84 H200 V98"/>
+    <path d="M410 64 V84 H540 V98"/>
     <path d="M200 148 V164"/>
     <path d="M540 148 V164"/>
   </g>
@@ -268,11 +268,11 @@ The root container, rather than `document`, is where those listeners live — a 
 
 ## Gotchas
 
-- A render can happen without a commit. If nothing changed, or the render was interrupted, React discards the work. Never assume rendering means the screen updated.
-- In development, StrictMode renders twice. Two console.log lines from one click is not a bug. It is React checking that the component renders purely (see 10).
-- State setters do not render immediately. They schedule. Several setters in one handler produce one render, not several (see 9 on batching).
-- Effects usually run after paint. If an effect measures a node and repositions it, the user can see the first position briefly. Updates from discrete input events are the exception (see 11). That is the case useLayoutEffect exists for (see 11).
-- "Re-render" does not mean "DOM update". React re-runs your function and compares; the DOM is only touched where something actually differs.
+- **A render can happen without a commit.** If nothing changed, or the render was interrupted, React discards the work. Never assume rendering means the screen updated.
+- **In development, StrictMode renders twice.** Two `console.log` lines from one click is not a bug. It is React checking that the component renders purely (see 10).
+- **State setters do not render immediately.** They schedule. Several setters in one handler produce one render, not several (see 9 on batching).
+- **Effects usually run after paint.** If an effect measures a node and repositions it, the user can see the first position briefly. Updates from discrete input events are the exception (see 11). That is the case `useLayoutEffect` exists for (see 11).
+- **"Re-render" does not mean "DOM update".** React re-runs your function and compares; the DOM is only touched where something actually differs.
 
 ## Takeaways
 
@@ -280,4 +280,4 @@ The root container, rather than `document`, is where those listeners live — a 
 - Render describes; commit applies. Only commit touches the DOM.
 - Render can be paused or discarded, so it must be pure. Commit cannot be interrupted.
 - The DOM during render is the previous screen. Measure after commit.
-- react is the reconciler, react-dom is the renderer, and events are delegated at the root.
+- `react` is the reconciler, `react-dom` is the renderer, and events are delegated at the root.

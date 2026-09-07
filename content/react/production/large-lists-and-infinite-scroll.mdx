@@ -7,6 +7,8 @@ tags: []
 updated: "2026-09-04"
 ---
 
+Why ten thousand rows are slow, and the ladder of things to do about it.
+
 "How would you render a list of ten thousand items?" is a common question, and the first move is to reject the premise: find out whether all ten thousand need to be in the browser at all. Usually they do not, and the best answer is server-side filtering with pagination.
 
 When they genuinely do — an inbox, a feed, a data grid — it is worth being precise about what is slow.
@@ -24,11 +26,11 @@ Ten thousand cards at fifteen nodes each is 150,000 DOM nodes. React's diff is n
 
 ## The ladder
 
-1. Paginate. Twenty per page, server-side. Simple, accessible, linkable, and enough for most products.
-2. Load more. A button that appends the next page. Keeps the user in control and leaves the footer reachable.
-3. Infinite scroll. The same thing triggered by scrolling. Suits feeds; hostile to almost everything else.
-4. Virtualize. Render only the visible rows. The answer when all the data must be present at once.
-5. Both. Virtualized rendering with paged loading. Where large data grids end up.
+1. **Paginate.** Twenty per page, server-side. Simple, accessible, linkable, and enough for most products.
+2. **Load more.** A button that appends the next page. Keeps the user in control and leaves the footer reachable.
+3. **Infinite scroll.** The same thing triggered by scrolling. Suits feeds; hostile to almost everything else.
+4. **Virtualize.** Render only the visible rows. The answer when all the data must be present at once.
+5. **Both.** Virtualized rendering with paged loading. Where large data grids end up.
 
 Climb only as far as the product needs. Each step costs complexity — scroll restoration, keyboard access, testing — and steps four and five cost the most.
 
@@ -61,8 +63,8 @@ Only the rows in the viewport exist in the DOM, plus a small buffer above and be
     <text x="345" y="190">not 10,000 nodes</text>
   </g>
   <g fill="none" stroke="currentColor" stroke-width="1.2">
-    
-</g>
+    <path d="M340 66 H326"/>
+  </g>
   <g fill="currentColor">
     <path d="M324 66 l8 -4 v8 z"/>
   </g>
@@ -166,7 +168,7 @@ The `enabled` guard matters: without it, the observer fires again while a reques
 
 ### Cursor versus offset paging
 
-| Offset — ?page=3 | Cursor — ?after=job_482 |
+| Offset — `?page=3` | Cursor — `?after=job_482` |
 |---|---|
 | Easy to implement, jump to any page | Stable when items are added or removed |
 | Items shift between pages as data changes, so rows duplicate or vanish | No page numbers, so no jumping to page 40 |
@@ -188,23 +190,22 @@ These are why "load more" is often the better choice. It has the same loading be
 
 Before any of this, `content-visibility: auto` on list items lets the browser skip layout and paint for off-screen content. The nodes still exist, so memory is unchanged, but rendering cost drops considerably for one line of CSS. On a few hundred rows it is often enough.
 
-  
-### What happens when
+<Callout kind="predict">
+**What happens when**
 
-  
 A virtualized list of 10,000 jobs is on screen. The user presses Ctrl+F and searches for a company name they can see two screens down. What happens?
 
-  
 Nothing is found. Only the rows near the viewport exist in the DOM, so the browser has nothing to match against. This is the trade virtualization makes, and it is worth stating to a product owner before building it — for a searchable dataset the answer is usually a search field that queries the server, not virtualization plus an apology.
+</Callout>
 
 ## Gotchas
 
-- The cost is DOM nodes, not React. Memoization does not help a list that is too long.
-- Virtualized rows break find-in-page and anchor links to items that are not rendered.
-- Without an enabled guard, the sentinel fires repeatedly and loads the same page several times.
-- Offset paging duplicates or skips rows when the underlying data changes between requests.
-- Scroll restoration must be handled explicitly once rows are virtualized.
-- Variable row heights are much harder than fixed ones; design for uniform rows where you can.
+- **The cost is DOM nodes, not React.** Memoization does not help a list that is too long.
+- **Virtualized rows break find-in-page and anchor links** to items that are not rendered.
+- **Without an `enabled` guard, the sentinel fires repeatedly** and loads the same page several times.
+- **Offset paging duplicates or skips rows** when the underlying data changes between requests.
+- **Scroll restoration must be handled explicitly** once rows are virtualized.
+- **Variable row heights are much harder than fixed ones**; design for uniform rows where you can.
 
 ## Takeaways
 
@@ -212,6 +213,6 @@ Nothing is found. Only the rows near the viewport exist in the DOM, so the brows
 - The cost is DOM nodes, layout and paint — not React's diff.
 - Climb the ladder only as far as needed: paginate, load more, infinite scroll, virtualize.
 - Virtualization renders a window plus overscan, with a spacer for the full height.
-- IntersectionObserver in a hook, with a guard so it cannot fire while loading.
+- `IntersectionObserver` in a hook, with a guard so it cannot fire while loading.
 - Cursors for changing data; offset for stable data with page numbers.
 - Infinite scroll costs the footer, find-in-page, keyboard users and SEO. Default to pagination unless it is a feed.

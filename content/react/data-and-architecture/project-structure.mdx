@@ -7,6 +7,8 @@ tags: []
 updated: "2026-09-04"
 ---
 
+Where files go, and how to add a library without regretting it.
+
 Structure has no correct answer, and it still has better and worse ones. The useful test is not elegance but a question: if you are handed a bug report about job filtering, how many folders do you open before you find the code?
 
 ## Two ways to organise
@@ -59,8 +61,8 @@ One rule keeps this from turning back into a mess: a feature may import from sha
     <rect x="180" y="150" width="380" height="36"/>
   </g>
   <g fill="none" stroke="currentColor" stroke-width="1.2">
-    
-<path d="M370 76 V148"/>
+    <path d="M150 76 V120 H340 V148"/>
+    <path d="M370 76 V148"/>
     <path d="M590 76 V120 H400 V148"/>
   </g>
   <g fill="currentColor">
@@ -88,12 +90,12 @@ One rule keeps this from turning back into a mess: a feature may import from sha
 
 | Thing | Home |
 |---|---|
-| API calls | Beside the feature that owns them, behind one apiClient in lib/ |
-| Custom hooks | With the feature if specific; hooks/ if generic |
-| Types | Next to the code they describe, not in a global types.ts (see 26) |
+| API calls | Beside the feature that owns them, behind one `apiClient` in `lib/` |
+| Custom hooks | With the feature if specific; `hooks/` if generic |
+| Types | Next to the code they describe, not in a global `types.ts` (see 26) |
 | Tests | Beside the file under test (see 27) |
 | Constants | With the feature; a global constants file collects unrelated junk |
-| Route definitions | One routes.jsx, so the whole map is readable in one place |
+| Route definitions | One `routes.jsx`, so the whole map is readable in one place |
 
 One `apiClient` is worth the small effort: base URL, credentials, error handling and the 401 case from chapter 20 exist once rather than in every call.
 
@@ -116,10 +118,10 @@ They cost more than they look. Importing one name pulls in the whole module grap
 
 ## Naming and path aliases
 
-- Components in PascalCase, matching the exported name: JobCard.jsx.
-- Hooks in camelCase starting with use: useJobs.js.
-- Everything else in camelCase: apiClient.js, formatSalary.js.
-- One component per file, with the file named after it. index.jsx files everywhere make editor tabs unusable.
+- Components in PascalCase, matching the exported name: `JobCard.jsx`.
+- Hooks in camelCase starting with `use`: `useJobs.js`.
+- Everything else in camelCase: `apiClient.js`, `formatSalary.js`.
+- One component per file, with the file named after it. `index.jsx` files everywhere make editor tabs unusable.
 
 ```jsx
 // vite.config.js
@@ -165,23 +167,22 @@ export const track = (event, properties) => {
 
 Do not wrap everything — a wrapper around React Router would be absurd. Wrap the things you are genuinely unsure about: analytics, error reporting, feature flags, a payment SDK.
 
-  
-### What happens when
+<Callout kind="predict">
+**What happens when**
 
-  
 A feature folder is deleted because the feature was cut. What tells you whether the structure was working?
 
-  
 Whether anything breaks. With downward-only imports, the folder goes and the app still builds; a few shared components lose a consumer. If other features imported from it, deleting is a refactor instead of a delete — which is the same reason those features cannot be understood or tested alone.
+</Callout>
 
 ## Gotchas
 
-- Sideways imports between features quietly merge them into one unremovable unit.
-- Barrel files slow dev startup and can defeat tree-shaking, and make import cycles easy.
-- A global utils.js becomes a junk drawer. Name modules after what they do.
-- Restructuring early costs more than it saves. Move to features when a folder is genuinely hard to navigate.
-- Mixed styling approaches are worse than any single one.
-- An unwrapped vendor SDK spreads through the codebase, and replacing it becomes a project.
+- **Sideways imports between features** quietly merge them into one unremovable unit.
+- **Barrel files slow dev startup and can defeat tree-shaking**, and make import cycles easy.
+- **A global `utils.js` becomes a junk drawer.** Name modules after what they do.
+- **Restructuring early costs more than it saves.** Move to features when a folder is genuinely hard to navigate.
+- **Mixed styling approaches** are worse than any single one.
+- **An unwrapped vendor SDK spreads through the codebase**, and replacing it becomes a project.
 
 ## Takeaways
 

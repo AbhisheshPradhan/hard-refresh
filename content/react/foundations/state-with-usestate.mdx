@@ -7,6 +7,8 @@ tags: []
 updated: "2026-09-04"
 ---
 
+Giving a component memory, and changing it without breaking React's assumptions.
+
 A component function runs from scratch on every render, so an ordinary variable cannot remember anything. State is the memory React keeps for a component between renders, and changing it is what tells React to render again.
 
 ```jsx
@@ -44,8 +46,8 @@ The setter does not change the variable. It schedules a render, and the new valu
     <rect x="450" y="46" width="190" height="70"/>
   </g>
   <g fill="none" stroke="currentColor" stroke-width="1.5">
-    
-</g>
+    <path d="M222 81 H444"/>
+  </g>
   <g fill="currentColor">
     <path d="M446 81 l-8 -4 v8 z"/>
   </g>
@@ -228,32 +230,31 @@ React matches state to a component by the order the hooks are called, not by nam
 
 Each rendered component has its own state. Six job cards each have their own `showFull`, and expanding one leaves the rest alone. If two components need to agree on a value, that value has to live above both of them (see 14).
 
-  
-### What happens when
+<Callout kind="predict">
+**What happens when**
 
-  
 A handler calls `setCount(count + 1)` three times in a row, starting from 0. What is the count afterwards?
 
-  
 1. All three read `count` from the same render, where it is 0, so all three schedule "set it to 1". With `setCount((c) => c + 1)` three times the answer is 3, because each receives the result of the one before.
+</Callout>
 
 ## Gotchas
 
-- A hook inside a condition, a loop or below an early return breaks state. Top of the component, every render, same order (see 10).
-- The initial value argument is evaluated on every render and ignored after the first. Use a function for anything expensive or effectful; a literal needs no wrapper.
-- To store a function as state, wrap it — in both useState and the setter. React calls whatever it is given, so useState(fn) and setFn(fn) store the return value, not the function.
-- Reading state straight after setting it gives the old value. The variable belongs to the current render.
-- Mutating and calling the setter with the same reference does nothing. No warning, no render.
-- Setting state to the same value usually skips the render. React compares with Object.is and bails out — but it may render the component once before deciding, so a single extra render after setting an equal value is expected, not a bug.
-- Do not copy props into state unless you mean to ignore later changes — the state is initialised once and then diverges.
-- State is not shared between instances. Two cards, two copies.
-- Calling a setter during render loops, unless it is the narrow case of adjusting state from a previous render.
+- **A hook inside a condition, a loop or below an early return breaks state.** Top of the component, every render, same order (see 10).
+- **The initial value argument is evaluated on every render** and ignored after the first. Use a function for anything expensive or effectful; a literal needs no wrapper.
+- **To store a function as state, wrap it** — in both `useState` and the setter. React calls whatever it is given, so `useState(fn)` and `setFn(fn)` store the return value, not the function.
+- **Reading state straight after setting it gives the old value.** The variable belongs to the current render.
+- **Mutating and calling the setter with the same reference does nothing.** No warning, no render.
+- **Setting state to the same value usually skips the render.** React compares with `Object.is` and bails out — but it may render the component once before deciding, so a single extra render after setting an equal value is expected, not a bug.
+- **Do not copy props into state** unless you mean to ignore later changes — the state is initialised once and then diverges.
+- **State is not shared between instances.** Two cards, two copies.
+- **Calling a setter during render loops**, unless it is the narrow case of adjusting state from a previous render.
 
 ## Takeaways
 
-- useState returns [value, setValue]; the argument is the initial value only.
+- `useState` returns `[value, setValue]`; the argument is the initial value only.
 - Setters schedule a render. The value in the current function does not change.
 - Multiple updates in one handler are batched into a single render.
-- Use setX((prev) => …) whenever the next value depends on the previous one.
+- Use `setX((prev) => …)` whenever the next value depends on the previous one.
 - Replace objects and arrays; never mutate them.
 - If a value can be derived from what you already have, it is not state.

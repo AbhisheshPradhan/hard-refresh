@@ -7,6 +7,8 @@ tags: []
 updated: "2026-09-04"
 ---
 
+Converting the job board, and the types that carry their weight.
+
 This chapter takes the components from earlier chapters and adds types to them, in the order you would actually do it. The aim is not maximum type coverage — it is catching the mistakes that would otherwise reach the browser, without turning every component into a type puzzle.
 
 ## Start with the data
@@ -69,7 +71,7 @@ interface CardProps {
 
 | Type | Accepts |
 |---|---|
-| `ReactNode` | Elements, strings, numbers, arrays, null — use this for children |
+| `ReactNode` | Elements, strings, numbers, arrays, null — use this for `children` |
 | `ReactElement` | A single JSX element only |
 | `ComponentType<P>` | A component itself, for HOCs and render props |
 
@@ -196,10 +198,10 @@ Two details. The trailing comma in `<T,>` is needed in `.tsx` files, where `<T>`
 
 | Avoid | Instead |
 |---|---|
-| any | unknown and narrow it, or write the type |
-| as to silence an error | Fix the type, or narrow with a check |
-| React.FC | Type the props parameter directly |
-| A global types.ts | Types beside the code they describe (see 21) |
+| `any` | `unknown` and narrow it, or write the type |
+| `as` to silence an error | Fix the type, or narrow with a check |
+| `React.FC` | Type the props parameter directly |
+| A global `types.ts` | Types beside the code they describe (see 21) |
 | Typing what inference already knows | Let it infer; annotate boundaries |
 
 `as` deserves emphasis. It does not convert anything — it tells the compiler to stop checking, which means the error you silenced becomes a runtime error later. The exception is genuinely unknowable data, such as a parsed API response, and that is better handled by validating it.
@@ -213,23 +215,22 @@ const jobs = await res.json() as Job[];   // a claim, not a check
 
 `res.json()` returns `any`. Asserting `Job[]` tells the compiler what you hope for, and nothing verifies it — if the API changes a field, TypeScript stays silent and the failure appears somewhere unrelated. For anything important, validate at the boundary with a schema library such as Zod, which checks at runtime and derives the type from the same definition.
 
-  
-### What happens when
+<Callout kind="predict">
+**What happens when**
 
-  
 The API renames `salary` to `salaryRange`, and the front end types the response with `as Job[]`. When does anyone find out?
 
-  
 At runtime, when a card renders `undefined` — or later, when something calls a string method on it and throws. The assertion suppressed exactly the check that would have caught it. With runtime validation at the boundary, the fetch fails immediately with a message naming the field.
+</Callout>
 
 ## Gotchas
 
-- useState([]) infers never[], so pushing anything in is an error. Annotate the generic.
-- as disables checking rather than converting. The error moves to runtime.
-- res.json() is any, so typed API responses are assumptions unless validated.
-- `<T>` in a `.tsx` file parses as JSX. Write `<T,>`.
-- Without as const, a returned tuple widens to an array of the union type.
-- Optional props are T | undefined, so a default value is not optional in the body unless you provide one.
+- **`useState([])` infers `never[]`**, so pushing anything in is an error. Annotate the generic.
+- **`as` disables checking rather than converting.** The error moves to runtime.
+- **`res.json()` is `any`**, so typed API responses are assumptions unless validated.
+- **`<T>` in a `.tsx` file parses as JSX.** Write `<T,>`.
+- **Without `as const`, a returned tuple widens to an array** of the union type.
+- **Optional props are `T | undefined`**, so a default value is not optional in the body unless you provide one.
 
 ## Takeaways
 
@@ -239,4 +240,4 @@ At runtime, when a card renders `undefined` — or later, when something calls a
 - Annotate state when the initial value does not represent the eventual type.
 - Discriminated unions make reducers and state machines checkable.
 - A nullable context plus a throwing hook gives consumers a non-null value for free.
-- Avoid any and as; validate API data at the boundary rather than asserting it.
+- Avoid `any` and `as`; validate API data at the boundary rather than asserting it.

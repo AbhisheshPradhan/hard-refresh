@@ -7,6 +7,8 @@ tags: []
 updated: "2026-09-04"
 ---
 
+Who the user is, which routes they may see, and where the token lives.
+
 One thing to fix before any of the code: the front end does not enforce anything. Hiding a button, guarding a route and disabling a form are all conveniences for the user. Anyone can open devtools and call the API directly, so every rule that matters is enforced on the server. What follows is about the experience, not the security.
 
 ## Three states, not two
@@ -42,8 +44,8 @@ useEffect(() => {
     <rect x="400" y="112" width="180" height="40"/>
   </g>
   <g fill="none" stroke="currentColor" stroke-width="1.2">
-    
-<path d="M222 90 V132 H394"/>
+    <path d="M222 90 V46 H394"/>
+    <path d="M222 90 V132 H394"/>
   </g>
   <g fill="currentColor">
     <path d="M396 46 l-8 -4 v8 z"/><path d="M396 132 l-8 -4 v8 z"/>
@@ -209,8 +211,8 @@ Note the distinction: a signed-out user is redirected to log in, a signed-in use
 
 | Storage | Trade |
 |---|---|
-| httpOnly cookie | Unreadable by JavaScript, so a script injection cannot steal it. Sent automatically, which is what creates the exposure: a request from another site carries the cookie too, so it needs cross-site request forgery (CSRF) protection via SameSite and a token. The default choice. |
-| localStorage | Simple, works across origins, survives refresh. Readable by any script on the page, so one XSS is a stolen session. |
+| `httpOnly` cookie | Unreadable by JavaScript, so a script injection cannot steal it. Sent automatically, which is what creates the exposure: a request from another site carries the cookie too, so it needs cross-site request forgery (CSRF) protection via `SameSite` and a token. The default choice. |
+| `localStorage` | Simple, works across origins, survives refresh. Readable by any script on the page, so one XSS is a stolen session. |
 | In memory | Gone on refresh, which is a real cost. Safest against theft; usually paired with a refresh token in a cookie. |
 
 **Default:** an `httpOnly` cookie issued by your own API, with the front end never touching the token. `localStorage` is common and is a considered risk rather than a mistake — but the reasoning has to be explicit, because the failure mode is a full account takeover rather than a bug.
@@ -236,29 +238,28 @@ const apiFetch = async (url, options) => {
 
 Send them to login with the current location in state, so signing back in returns them to what they were doing rather than to the home page.
 
-  
-### What happens when
+<Callout kind="predict">
+**What happens when**
 
-  
 A user signs out and a colleague signs in on the same browser. The app uses a query cache and clears only `user` on logout. What do they see?
 
-  
 The previous user's cached data — their jobs, their profile — until each query refetches. On a shared machine that is a data leak, not a glitch. Clear the cache on logout, and consider including the user id in query keys so entries cannot be reused across accounts.
+</Callout>
 
 ## Gotchas
 
-- Guards must handle the unknown state. Checking only !user logs people out on every refresh.
-- Client-side guards are not security. The server enforces; the UI is a convenience.
-- Clear caches on logout, or the next user inherits the last one's data.
-- Use replace on auth redirects, in both directions, or the back button loops.
-- Do not decide permissions by decoding a token client-side. Ask the server.
-- A wrapper component without displayName makes the DevTools tree unreadable.
+- **Guards must handle the unknown state.** Checking only `!user` logs people out on every refresh.
+- **Client-side guards are not security.** The server enforces; the UI is a convenience.
+- **Clear caches on logout**, or the next user inherits the last one's data.
+- **Use `replace` on auth redirects**, in both directions, or the back button loops.
+- **Do not decide permissions by decoding a token client-side.** Ask the server.
+- **A wrapper component without `displayName`** makes the DevTools tree unreadable.
 
 ## Takeaways
 
 - Auth state has three values: unknown, signed in, signed out. The first is the one people forget.
 - Context is the right home for it — needed widely, changes rarely.
-- Guard groups of routes with a layout route; use withAuth for one-off components.
-- Redirect with replace and carry the attempted location so login can return the user to it.
-- httpOnly cookies by default; localStorage only as a considered trade.
+- Guard groups of routes with a layout route; use `withAuth` for one-off components.
+- Redirect with `replace` and carry the attempted location so login can return the user to it.
+- `httpOnly` cookies by default; `localStorage` only as a considered trade.
 - Handle 401 in one place, and clear cached data on logout.

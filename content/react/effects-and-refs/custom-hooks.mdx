@@ -7,6 +7,8 @@ tags: []
 updated: "2026-09-04"
 ---
 
+Extracting stateful logic so it can be reused, named, and tested.
+
 A custom hook is a function whose name starts with `use` and that calls other hooks. There is no other machinery. React does not treat it specially; the naming convention is what tells the linter, and the reader, that the rules of hooks apply.
 
 ## Extracting the first one
@@ -82,8 +84,7 @@ This is the point people most often get wrong. Two components calling `useJobs` 
     <rect x="480" y="166" width="180" height="30"/>
   </g>
   <g fill="none" stroke="currentColor" stroke-width="1.2">
-    
-<path d="M160 126 V164"/>
+    <path d="M160 56 V94"/><path d="M160 126 V164"/>
     <path d="M570 56 V94"/><path d="M570 126 V164"/>
   </g>
   <g fill="currentColor">
@@ -201,29 +202,28 @@ export const formatSalary = (salary) => `${salary} / year`;
 
 Two other cases where extraction is premature: logic used in exactly one place and unlikely to move, and an extraction that merely renames a single `useState` call without adding behaviour.
 
-  
-### What happens when
+<Callout kind="predict">
+**What happens when**
 
-  
 `useJobs` is called in both `HomePage` and `Navbar`, to show a list and a count. How many requests go out, and what happens when a job is added?
 
-  
 Two requests on load, and after adding a job only the component that triggered the refetch updates — the other keeps its stale copy until it remounts. Shared server data is the case custom hooks alone do not solve; it needs a cache both callers read from (see 16).
+</Callout>
 
 ## Gotchas
 
-- Hooks share logic, never state. Two callers get two independent copies.
-- The use prefix is not decorative. Without it the linter cannot enforce the rules, and the function looks safe to call conditionally.
-- The rules of hooks apply inside custom hooks too (see 10). No conditional calls, no early returns above them.
-- Returning an object versus a tuple matters. Tuples let callers rename freely and suit two values; objects are clearer beyond that.
-- Callbacks passed into a hook and used as dependencies must be stable, or the effect re-subscribes on every render.
-- A function with no hooks in it is not a hook. Naming it useX only makes it harder to call.
+- **Hooks share logic, never state.** Two callers get two independent copies.
+- **The `use` prefix is not decorative.** Without it the linter cannot enforce the rules, and the function looks safe to call conditionally.
+- **The rules of hooks apply inside custom hooks too** (see 10). No conditional calls, no early returns above them.
+- **Returning an object versus a tuple matters.** Tuples let callers rename freely and suit two values; objects are clearer beyond that.
+- **Callbacks passed into a hook and used as dependencies must be stable**, or the effect re-subscribes on every render.
+- **A function with no hooks in it is not a hook.** Naming it `useX` only makes it harder to call.
 
 ## Takeaways
 
-- A custom hook is a function starting with use that calls other hooks. Nothing more.
+- A custom hook is a function starting with `use` that calls other hooks. Nothing more.
 - Extract to give logic a name and one home, not for its own sake.
 - Every call creates its own state; hooks do not share data between components.
 - Compose hooks by calling them from other hooks.
-- Keep the return shape conventional: a tuple like useState, or a named object.
+- Keep the return shape conventional: a tuple like `useState`, or a named object.
 - No hooks inside means it should be a plain function.

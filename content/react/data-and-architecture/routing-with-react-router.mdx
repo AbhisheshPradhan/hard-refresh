@@ -7,6 +7,8 @@ tags: []
 updated: "2026-09-04"
 ---
 
+Mapping URLs to components, and treating the URL as state.
+
 React has no router. Routing is the clearest example of the library-versus-framework distinction from chapter 1, and React Router is the de facto standard answer.
 
 ```jsx
@@ -72,8 +74,7 @@ const MainLayout = () => {
     <rect x="80" y="174" width="200" height="28"/>
   </g>
   <g fill="none" stroke="currentColor" stroke-width="1.2">
-    
-<path d="M60 104 V146 H76"/><path d="M60 146 V188 H76"/>
+    <path d="M60 72 V104 H76"/><path d="M60 104 V146 H76"/><path d="M60 146 V188 H76"/>
   </g>
   <g font-family="Helvetica, Arial, sans-serif" font-size="11" fill="currentColor" text-anchor="middle">
     <text x="140" y="63">/ — MainLayout</text>
@@ -238,30 +239,29 @@ const AddJobPage = lazy(() => import('./pages/AddJobPage'));
 
 Route boundaries are the natural place to split a bundle, because a user who never opens the add-job page never downloads it (see 18).
 
-  
-### What happens when
+<Callout kind="predict">
+**What happens when**
 
-  
 A filter is stored with `useState`. The user filters to Remote, opens a job, then presses the browser back button. What do they see?
 
-  
 The unfiltered list. Going back re-renders the jobs page with fresh state, and the filter is gone — so is the scroll position. With the filter in the URL as `?type=Remote`, back returns them to exactly the list they left, and they could have bookmarked or shared it.
+</Callout>
 
 ## Gotchas
 
-- Tutorials that install react-router-dom are out of date. That package no longer exists; import from react-router.
-- `<a href>` reloads the whole app. Use Link for internal navigation and keep anchors for external URLs.
-- A layout without `<Outlet />` renders no page. The chrome appears and the content never does.
-- Deploying a client-side router needs a server rewrite sending unknown paths to index.html, or a refresh on /jobs/3 returns a 404.
-- Navigating between two params of the same route does not remount the component, so state persists; add `key={id}` if it should reset (see 6).
-- Redirect without replace leaves the abandoned page in history, and back bounces the user forward again.
-- A guard that checks auth before the session has loaded logs the user out on every refresh.
+- **Tutorials that install `react-router-dom` are out of date.** That package no longer exists; import from `react-router`.
+- **`<a href>` reloads the whole app.** Use `Link` for internal navigation and keep anchors for external URLs.
+- **A layout without `<Outlet />` renders no page.** The chrome appears and the content never does.
+- **Deploying a client-side router needs a server rewrite** sending unknown paths to `index.html`, or a refresh on `/jobs/3` returns a 404.
+- **Navigating between two params of the same route does not remount** the component, so state persists; add `key={id}` if it should reset (see 6).
+- **Redirect without `replace`** leaves the abandoned page in history, and back bounces the user forward again.
+- **A guard that checks auth before the session has loaded** logs the user out on every refresh.
 
 ## Takeaways
 
-- Routing is a separate package, imported from react-router; createBrowserRouter plus RouterProvider is the current setup.
+- Routing is a separate package, imported from `react-router`; `createBrowserRouter` plus `RouterProvider` is the current setup.
 - A parent route whose element is a layout renders its children through `<Outlet />` and stays mounted across them.
-- Link and NavLink navigate without a reload; index is the default child and * is the catch-all.
+- `Link` and `NavLink` navigate without a reload; `index` is the default child and `*` is the catch-all.
 - Loaders fetch before the route renders and get cancellation for free; actions handle writes and revalidate.
 - Put shareable state in the URL: filters, sort, pagination, tabs.
 - Protect groups of routes with a guard layout, and handle the loading case in it.

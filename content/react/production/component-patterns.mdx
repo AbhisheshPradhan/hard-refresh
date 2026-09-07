@@ -7,6 +7,8 @@ tags: []
 updated: "2026-09-04"
 ---
 
+Designing a component's interface so it survives the next requirement.
+
 A component has two designs: what it renders, and what it asks callers for. The second is the one that decides whether the next requirement is a new prop or a rewrite.
 
 ## The prop explosion
@@ -72,8 +74,8 @@ The checkbox needed no change to `Modal`. Focus trapping, escape handling and th
     <rect x="465" y="152" width="190" height="18"/>
   </g>
   <g fill="none" stroke="currentColor" stroke-width="1.2">
-    
-<path d="M560 76 V108"/>
+    <path d="M175 76 V108"/>
+    <path d="M560 76 V108"/>
   </g>
   <g fill="currentColor">
     <path d="M175 110 l-4 -8 h8 z"/><path d="M560 110 l-4 -8 h8 z"/>
@@ -236,8 +238,8 @@ A function that takes a component and returns a wrapped one. Their drawbacks are
   </g>
 
   <g fill="none" stroke="currentColor" stroke-width="1.2">
-    
-<path d="M180 140 V172 H105 V198"/>
+    <path d="M180 64 V96"/>
+    <path d="M180 140 V172 H105 V198"/>
     <path d="M180 140 V172 H271 V198"/>
     <path d="M560 64 V96"/>
   </g>
@@ -256,7 +258,7 @@ A function that takes a component and returns a wrapped one. Their drawbacks are
     <text x="271" y="220">Navigate to /login</text>
     <text x="560" y="55">parent</text>
     <text x="560" y="125">AddJobPage — already rendering</text>
-    <text x="560" y="162">useAuth() returns {"{ user }"}</text>
+    <text x="560" y="162">useAuth() returns &#123; user &#125;</text>
     <text x="560" y="205">can branch on the value,</text>
     <text x="560" y="221">but the component is running</text>
   </g>
@@ -307,28 +309,27 @@ export default withAuth(AddJobPage);
 
 The order to reach for them: colocated state first, then a hook if the logic repeats, then context if the value is needed deep and widely, then a store if updates become complex enough to want actions and devtools. An HOC is not on that ladder at all — it is a wrapper you add when rendering itself needs guarding.
 
-  
-### What happens when
+<Callout kind="predict">
+**What happens when**
 
-  
 A `Modal` takes twelve configuration props. A designer asks for a form with two fields inside the body. What does the change look like?
 
-  
 Either a thirteenth prop taking JSX — which is composition arriving through the back door — or a new `FormModal` duplicating the overlay, focus trap and escape handling. Both are worse than having taken `children` from the start, and both are the moment to refactor rather than add.
+</Callout>
 
 ## Gotchas
 
-- Compound parts used outside their parent should throw a clear error, not fail on a null context.
-- Switching between controlled and uncontrolled mid-life — passing undefined then a value — warns and behaves oddly. Decide at mount.
-- A component that takes both children and a content prop has two ways to do one thing; pick one.
-- HOCs need displayName, or DevTools fills with anonymous wrappers (see 20).
-- Abstracting on the first repetition is usually premature. Wait for the second or third, when the shape is clear.
-- Compound components rely on context, so every part re-renders when the shared value changes (see 14).
+- **Compound parts used outside their parent** should throw a clear error, not fail on a null context.
+- **Switching between controlled and uncontrolled mid-life** — passing `undefined` then a value — warns and behaves oddly. Decide at mount.
+- **A component that takes both `children` and a content prop** has two ways to do one thing; pick one.
+- **HOCs need `displayName`**, or DevTools fills with anonymous wrappers (see 20).
+- **Abstracting on the first repetition is usually premature.** Wait for the second or third, when the shape is clear.
+- **Compound components rely on context**, so every part re-renders when the shared value changes (see 14).
 
 ## Takeaways
 
 - The interface a component asks for determines how it copes with new requirements.
-- Configuration props accumulate; slots do not. Prefer children for content.
+- Configuration props accumulate; slots do not. Prefer `children` for content.
 - Compound components share state through context so callers control layout without wiring.
 - Support uncontrolled with a callback by default, and controlled for callers who need it.
 - Render props and HOCs are the pre-hooks answers to logic reuse; you will read them more than write them.

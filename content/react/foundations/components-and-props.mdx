@@ -7,6 +7,8 @@ tags: []
 updated: "2026-09-04"
 ---
 
+The unit everything is built from, and how values reach it.
+
 A component is a function that takes data and returns JSX. It is named with a capital letter, because JSX treats lowercase names as HTML tags (see 2).
 
 ```jsx
@@ -44,8 +46,8 @@ Components are built from other components. A page is made of sections, a sectio
     <rect x="590" y="188" width="130" height="28"/>
   </g>
   <g fill="none" stroke="currentColor" stroke-width="1.2">
-    
-<path d="M365 48 V62 H425 V74"/>
+    <path d="M365 48 V62 H175 V74"/>
+    <path d="M365 48 V62 H425 V74"/>
     <path d="M425 104 V118 H315 V130"/>
     <path d="M425 118 H485 V130"/>
     <path d="M485 160 V186"/>
@@ -96,7 +98,7 @@ Props are not only data. Anything JavaScript can hold can be passed, and each un
 | Value | `job={job}` | What to display |
 | Function | `onDelete={deleteJob}` | Letting a child trigger the parent (see 14) |
 | Element | `icon={<FaMapMarker />}` | Letting the caller supply part of the markup |
-| Class name | bg="bg-indigo-100" | Varying appearance without a new component |
+| Class name | `bg="bg-indigo-100"` | Varying appearance without a new component |
 
 ## children
 
@@ -152,29 +154,28 @@ Three words that get used interchangeably and mean different things. The distinc
 
 | Term | What it is |
 |---|---|
-| Component | The function you wrote: JobCard |
+| Component | The function you wrote: `JobCard` |
 | Element | The object produced by `<JobCard job={job} />`, describing one use of it |
 | Instance | What React keeps on screen for that element, holding its state |
 
 One component, many elements, one instance per element on screen. Six job cards means one function, six elements per render, and six instances each with their own state.
 
-  
-### What happens when
+<Callout kind="predict">
+**What happens when**
 
-  
 A child does `job.title = job.title.toUpperCase()` and renders it. The title uppercases correctly. What is wrong?
 
-  
 The child mutated an object the parent owns, so every other component holding that same job now sees the uppercased title, with no render triggered to show it. The screen becomes inconsistent in a way that looks random. Derive a new value instead — `const title = job.title.toUpperCase()` (see 10).
+</Callout>
 
 ## Gotchas
 
-- Component names must be capitalised. Lowercase is treated as an HTML tag and fails silently (see 2).
-- Props are read-only. Mutating one changes the parent's data behind its back.
-- Defaults only fill in undefined, not null, 0 or ''.
-- Never define a component inside another component. It is a new function each render, so React remounts it and its state resets (see 9).
-- Passing everything down with `{...props}` is convenient and hides the interface. Fine for a thin wrapper around an input; poor for a component with real behaviour.
-- children is a fixed name. You cannot rename it, though you can pass elements under other names alongside it.
+- **Component names must be capitalised.** Lowercase is treated as an HTML tag and fails silently (see 2).
+- **Props are read-only.** Mutating one changes the parent's data behind its back.
+- **Defaults only fill in `undefined`**, not `null`, `0` or `''`.
+- **Never define a component inside another component.** It is a new function each render, so React remounts it and its state resets (see 9).
+- **Passing everything down with `{...props}` is convenient and hides the interface.** Fine for a thin wrapper around an input; poor for a component with real behaviour.
+- **`children` is a fixed name.** You cannot rename it, though you can pass elements under other names alongside it.
 
 ## Takeaways
 

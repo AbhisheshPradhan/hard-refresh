@@ -7,6 +7,8 @@ tags: []
 updated: "2026-09-04"
 ---
 
+HTML-shaped syntax that is really JavaScript, and the few places the difference shows.
+
 JSX — JavaScript XML — is the markup a component returns. It looks like HTML, but it is neither HTML nor a string. A build step turns it into ordinary function calls. It is a syntax extension rather than part of the language, and not a React invention: Vue, Solid and Preact use it too.
 
 ```jsx
@@ -63,7 +65,7 @@ The word *expression* is the constraint. An expression produces a value; a state
 |---|---|
 | One thing or another | Ternary: `{a ? x : y}` |
 | Something or nothing | `{a && x}` |
-| Several branches, or an early exit | An if above the return |
+| Several branches, or an early exit | An `if` above the `return` |
 
 ```jsx
 <button>{showFull ? 'Less' : 'More'}</button>
@@ -95,10 +97,10 @@ Guard with a boolean, not a number. React ignores `false`, `null` and `undefined
 
 | HTML | JSX | Why |
 |---|---|---|
-| class | className | Reserved word in JavaScript |
-| for | htmlFor | Reserved word |
-| onclick | onClick | Props are camelCase |
-| tabindex | tabIndex | Same |
+| `class` | `className` | Reserved word in JavaScript |
+| `for` | `htmlFor` | Reserved word |
+| `onclick` | `onClick` | Props are camelCase |
+| `tabindex` | `tabIndex` | Same |
 | `<!-- … -->` | `{/* … */}` | Comments are JavaScript |
 | `<br>` | `<br />` | Every tag must close |
 
@@ -112,28 +114,27 @@ Two exceptions worth knowing: `data-*` and `aria-*` attributes keep their dashes
 
 Two sets of braces: the outer pair means "evaluate an expression", the inner pair is an object literal. Property names are camelCase, and values are strings. This project uses utility classes for styling, so inline styles appear rarely — mostly for values computed at runtime, such as a progress bar's width.
 
-  
-### What happens when
+<Callout kind="predict">
+**What happens when**
 
-  
 You render `{jobs.filter(isRemote).length && 'Remote roles available'}` and no jobs are remote. What appears?
 
-  
 A `0`, on its own, in the middle of the page. The filter returns an empty array, `length` is `0`, `&&` short-circuits and returns that `0`, and React renders numbers faithfully. Compare with `> 0`, which produces `false`, and React skips false.
+</Callout>
 
 ## Gotchas
 
-- 0 and NaN render; false, null, undefined and '' do not. Guard with a comparison rather than a length.
-- Statements cannot go inside braces. Move an if above the return, or use a ternary.
-- JSX is not HTML you can paste in. Converting a template means changing class, for, comments and self-closing tags.
-- Whitespace between JSX lines is collapsed, so `{' '}` is sometimes needed to keep a space between elements.
-- A component's name must be capitalised. Lowercase means an HTML tag, so `<jobCard />` renders an unknown element rather than your component.
+- **`0` and `NaN` render; `false`, `null`, `undefined` and `''` do not.** Guard with a comparison rather than a length.
+- **Statements cannot go inside braces.** Move an `if` above the return, or use a ternary.
+- **JSX is not HTML you can paste in.** Converting a template means changing `class`, `for`, comments and self-closing tags.
+- **Whitespace between JSX lines is collapsed**, so `{' '}` is sometimes needed to keep a space between elements.
+- **A component's name must be capitalised.** Lowercase means an HTML tag, so `<jobCard />` renders an unknown element rather than your component.
 
 ## Takeaways
 
 - JSX compiles to function calls that produce plain objects. It is JavaScript, not markup.
 - One root element per return; a fragment when a wrapper node is unwanted.
 - Braces take expressions only.
-- Ternary for either/or, && for something-or-nothing, if above the return for branches.
-- className, htmlFor, camelCase events, closed tags, `{/* comments */}`.
+- Ternary for either/or, `&&` for something-or-nothing, `if` above the return for branches.
+- `className`, `htmlFor`, camelCase events, closed tags, `{/* comments */}`.
 - Inline styles take an object of camelCase properties.
