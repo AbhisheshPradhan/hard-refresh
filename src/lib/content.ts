@@ -170,7 +170,19 @@ export const getNotes = cache((subject: string): NoteMeta[] => {
 		);
 	});
 
-	return notes.sort((a, b) => a.order - b.order);
+	/*
+	 * Chapter first, then position within it. `order` is only unique inside a
+	 * chapter — reference/ and start-here/ number from 1 just as foundations/
+	 * does — so sorting on it alone interleaves them and the prev/next links
+	 * walk sideways into another chapter.
+	 */
+	const chapterOrder = new Map(getChapters(subject).map((c) => [c.slug, c.order]));
+
+	return notes.sort(
+		(a, b) =>
+			(chapterOrder.get(a.chapterSlug) ?? 0) - (chapterOrder.get(b.chapterSlug) ?? 0) ||
+			a.order - b.order
+	);
 });
 
 /** Every note across every subject. Used for cross-subject id resolution. */

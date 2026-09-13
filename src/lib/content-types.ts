@@ -39,7 +39,7 @@ export interface NoteMeta {
 	slug: string;
 	title: string;
 	summary: string;
-	/** Global 1..28, not per chapter. Monotonic, so it sorts correctly either way. */
+	/** Position within its chapter. Not unique across chapters — sort with the chapter. */
 	order: number;
 	prerequisites: NoteId[];
 	tags: string[];
