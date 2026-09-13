@@ -136,7 +136,7 @@ export function LibrarySidebar({
 						focus
 					)}
 				>
-					Practise {subject.title}
+					Practice {subject.title}
 					<ArrowRight
 						className="size-3.5"
 						aria-hidden="true"

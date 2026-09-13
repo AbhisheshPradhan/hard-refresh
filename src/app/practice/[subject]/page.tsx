@@ -23,7 +23,7 @@ export async function generateMetadata({
 	const subject = getSubject(slug);
 
 	return subject
-		? { title: `Practise ${subject.title}`, description: `Quiz and interview questions.` }
+		? { title: `Practice ${subject.title}`, description: `Quiz and interview questions.` }
 		: {};
 }
 
@@ -39,7 +39,7 @@ export default async function SubjectPracticePage({ params }: PageProps<"/practi
 
 	return (
 		<PageShell
-			title={`Practise ${subject.title}`}
+			title={`Practice ${subject.title}`}
 			blurb="Pick a chapter, or read the notes first and answer each one as you finish it."
 		>
 			<nav

@@ -55,41 +55,42 @@ export default async function ChapterQuizPage({
 	}));
 
 	return (
-		<main className="mx-auto w-full max-w-3xl flex-1 px-4 py-10">
-			<nav
-				aria-label="Breadcrumb"
-				className="mb-6 text-sm text-muted-foreground"
-			>
-				<Link
-					href="/practice"
-					className="cursor-pointer rounded-sm hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+		<main className="mx-auto w-full max-w-6xl flex-1 px-4 py-10">
+			{/* Same container as every other page, so the left edge never moves.
+			    The column inside is capped at a comfortable reading measure. */}
+			<div className="max-w-3xl">
+				<nav
+					aria-label="Breadcrumb"
+					className="mb-6 text-sm text-muted-foreground"
 				>
-					Practice
-				</Link>
-				<span aria-hidden="true"> / </span>
-				<Link
-					href={`/practice/${subject}`}
-					className="cursor-pointer rounded-sm hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-				>
-					{parentSubject?.title ?? subject}
-				</Link>
-				<span aria-hidden="true"> / </span>
-				<Link
-					href={`/learn/${subject}/${slug}`}
-					className="cursor-pointer rounded-sm hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-				>
+					<Link
+						href="/practice"
+						className="cursor-pointer rounded-sm hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+					>
+						Practice
+					</Link>
+					<span aria-hidden="true"> / </span>
+					<Link
+						href={`/practice/${subject}`}
+						className="cursor-pointer rounded-sm hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+					>
+						{parentSubject?.title ?? subject}
+					</Link>
+					<span aria-hidden="true"> / </span>
+					{/* The chapter you are practising, not a link out to Learn — a crumb
+				    should walk back up this section, not sideways into another. */}
+					<span className="text-foreground">{chapter.title}</span>
+				</nav>
+
+				<h1 className="font-heading mb-8 text-2xl font-semibold tracking-tight text-foreground">
 					{chapter.title}
-				</Link>
-			</nav>
+				</h1>
 
-			<h1 className="font-heading mb-8 text-2xl font-semibold tracking-tight text-foreground">
-				{chapter.title}
-			</h1>
-
-			<QuizRunner
-				items={items}
-				noteLinks={noteLinks}
-			/>
+				<QuizRunner
+					items={items}
+					noteLinks={noteLinks}
+				/>
+			</div>
 		</main>
 	);
 }

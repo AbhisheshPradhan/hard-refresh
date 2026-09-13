@@ -10,7 +10,7 @@ export default function HomePage() {
 	const first = groups[0]?.subjects[0];
 
 	return (
-		<main className="mx-auto w-full max-w-5xl flex-1 px-4">
+		<main className="mx-auto w-full max-w-6xl flex-1 px-4">
 			<section className="py-20 sm:py-28">
 				<p className="mb-4 inline-flex items-center gap-2 rounded-full border border-border bg-muted px-3 py-1 font-mono text-xs text-muted-foreground">
 					Ctrl + Shift + R, for the things you read once

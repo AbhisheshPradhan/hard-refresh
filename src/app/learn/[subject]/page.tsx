@@ -110,7 +110,7 @@ export default async function SubjectPage({ params }: PageProps<"/learn/[subject
 						className="h-10 px-4"
 						render={<Link href={practiceHref(slug)} />}
 					>
-						Practise instead
+						Practice instead
 					</Button>
 				) : null}
 			</div>
